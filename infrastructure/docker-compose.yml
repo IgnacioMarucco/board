@@ -1,0 +1,18 @@
+# Docker Compose - Board Application
+# Placeholder - will contain MySQL, Backend, Frontend, Nginx
+
+version: '3.8'
+
+services:
+  # TODO: Add services
+  # - mysql
+  # - backend
+  # - frontend
+  # - nginx (reverse-proxy)
+
+networks:
+  board-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
