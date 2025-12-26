@@ -1,0 +1,84 @@
+# ════════════════════════════════════════════════════════════════════════════
+# FRONTEND CI WORKFLOW
+# ════════════════════════════════════════════════════════════════════════════
+# This workflow validates the frontend code on every Pull Request.
+# It runs: Prettier (formatting) → ESLint (TypeScript) → Stylelint (SCSS) → Build
+# ════════════════════════════════════════════════════════════════════════════
+
+name: Frontend CI
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRIGGER: When does this workflow run?
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  pull_request:
+    branches: [main, develop]  # Only PRs targeting these branches
+    paths:
+      - 'frontend/**'                       # Only if frontend code changed
+      - '.github/workflows/frontend-ci.yml'  # Or if this workflow changed
+
+jobs:
+  validate:
+    name: Validate Frontend
+    runs-on: ubuntu-latest  # GitHub-hosted Linux runner (free)
+    
+    # All commands run from the frontend/ directory
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 1: Checkout - Download the code from the repository
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 2: Setup Node.js - Install Node 20 and cache npm packages
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'  # Cache node_modules based on package-lock.json
+          cache-dependency-path: frontend/package-lock.json
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 3: Install - Download all npm dependencies
+      # 'npm ci' is faster than 'npm install' and ensures clean install
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 4: Prettier - Check if code is properly formatted
+      # Fails if any file is not formatted according to .prettierrc
+      # Run 'npm run format' locally to auto-fix formatting issues
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Check Prettier formatting
+        run: npm run format:check
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 5: ESLint - Validate TypeScript code quality
+      # Checks for bugs, bad practices, and Angular-specific issues
+      # Config is in eslint.config.js
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Run ESLint
+        run: npm run lint
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 6: Stylelint - Validate SCSS/CSS code quality
+      # Checks for invalid properties, ordering, and style issues
+      # Config is in .stylelintrc.json
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Run Stylelint
+        run: npm run lint:css
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 7: Build - Compile the Angular application
+      # Ensures the code compiles without errors
+      # Output goes to dist/ directory
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Build
+        run: npm run build

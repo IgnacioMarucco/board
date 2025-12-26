@@ -1,0 +1,70 @@
+# ════════════════════════════════════════════════════════════════════════════
+# BRANCH NAMING CONVENTION WORKFLOW
+# ════════════════════════════════════════════════════════════════════════════
+# This workflow enforces Git Flow branch naming conventions.
+# It validates that PRs use the correct branch patterns:
+#   - PRs to 'develop' must come from: feature/* or fix/*
+#   - PRs to 'main' must come from: release/* or hotfix/*
+# ════════════════════════════════════════════════════════════════════════════
+
+name: Branch Naming Convention
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRIGGER: Runs on all PRs to protected branches
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  check-branch-name:
+    name: Validate Branch Name
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Validate branch name
+        run: |
+          # ─────────────────────────────────────────────────────────────────
+          # Get branch names from GitHub environment variables
+          # GITHUB_HEAD_REF = source branch (e.g., feature/login)
+          # GITHUB_BASE_REF = target branch (e.g., develop)
+          # ─────────────────────────────────────────────────────────────────
+          branch="${GITHUB_HEAD_REF}"
+          target="${GITHUB_BASE_REF}"
+          
+          echo "Source branch: $branch"
+          echo "Target branch: $target"
+          
+          # ─────────────────────────────────────────────────────────────────
+          # RULE 1: PRs to 'develop' must be feature/* or fix/*
+          # Examples of VALID branches:
+          #   - feature/user-authentication
+          #   - feature/add-login-page
+          #   - fix/typo-in-header
+          #   - fix/null-pointer-exception
+          # ─────────────────────────────────────────────────────────────────
+          if [[ "$target" == "develop" ]]; then
+            if [[ ! "$branch" =~ ^(feature|fix)/.+ ]]; then
+              echo "❌ ERROR: Branch '$branch' is not allowed to merge into develop."
+              echo "   Allowed patterns: feature/*, fix/*"
+              exit 1
+            fi
+          fi
+          
+          # ─────────────────────────────────────────────────────────────────
+          # RULE 2: PRs to 'main' must be release/* or hotfix/*
+          # Examples of VALID branches:
+          #   - release/1.0.0
+          #   - release/2.1.0-beta
+          #   - hotfix/critical-security-fix
+          #   - hotfix/production-crash
+          # ─────────────────────────────────────────────────────────────────
+          if [[ "$target" == "main" ]]; then
+            if [[ ! "$branch" =~ ^(release|hotfix)/.+ ]]; then
+              echo "❌ ERROR: Branch '$branch' is not allowed to merge into main."
+              echo "   Allowed patterns: release/*, hotfix/*"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ Branch name '$branch' is valid for target '$target'"

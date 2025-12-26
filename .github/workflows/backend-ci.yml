@@ -1,0 +1,93 @@
+# ════════════════════════════════════════════════════════════════════════════
+# BACKEND CI WORKFLOW
+# ════════════════════════════════════════════════════════════════════════════
+# This workflow validates the backend code on every Pull Request.
+# It runs: Checkstyle (code style) → PMD (static analysis) → Tests → Coverage
+# ════════════════════════════════════════════════════════════════════════════
+
+name: Backend CI
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRIGGER: When does this workflow run?
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  pull_request:
+    branches: [main, develop]  # Only PRs targeting these branches
+    paths:
+      - 'backend/**'                      # Only if backend code changed
+      - '.github/workflows/backend-ci.yml' # Or if this workflow changed
+
+jobs:
+  validate:
+    name: Validate Backend
+    runs-on: ubuntu-latest  # GitHub-hosted Linux runner (free)
+    
+    # All commands run from the backend/ directory
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 1: Checkout - Download the code from the repository
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 2: Setup Java - Install JDK 17 and cache Maven dependencies
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'  # Eclipse Temurin (free, open source JDK)
+          cache: maven             # Cache ~/.m2 to speed up builds
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 3: Checkstyle - Validate code style (formatting, naming, etc.)
+      # Fails if code doesn't follow the rules in .code_quality/checkstyle_rules.xml
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Run Checkstyle
+        run: mvn checkstyle:check
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 4: PMD - Static code analysis (find bugs, bad practices)
+      # Fails if code has issues defined in .code_quality/pmd_rules.xml
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Run PMD
+        run: mvn pmd:check
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 5: Tests + Coverage - Run all unit tests and generate coverage
+      # 'mvn verify' runs: compile → test → package → integration-test → verify
+      # JaCoCo plugin generates coverage report in target/site/jacoco/
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Run Tests with Coverage
+        run: mvn verify
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 6: Upload Coverage - Save the HTML report as an artifact
+      # You can download it from the Actions tab in GitHub
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()  # Upload even if tests fail
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco/
+          retention-days: 7  # Delete after 7 days to save storage
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 7: PR Comment - Add coverage summary as a comment on the PR
+      # Shows % coverage for changed files vs overall project
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Add Coverage to PR
+        uses: madrapps/jacoco-report@v1.6.1
+        if: github.event_name == 'pull_request'
+        with:
+          paths: backend/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}  # Provided by GitHub automatically
+          min-coverage-overall: 0             # Don't fail on low coverage (yet)
+          min-coverage-changed-files: 0       # Don't fail on low coverage (yet)
+          title: "📊 Backend Coverage Report"
