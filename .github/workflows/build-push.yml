@@ -1,0 +1,126 @@
+# ════════════════════════════════════════════════════════════════════════════
+# BUILD AND PUSH DOCKER IMAGES WORKFLOW
+# ════════════════════════════════════════════════════════════════════════════
+# This workflow builds Docker images and pushes them to GitHub Container Registry.
+# Triggers:
+#   - Push to main → builds :latest tag
+#   - Workflow can also be called from release.yml for semantic versioning
+# ════════════════════════════════════════════════════════════════════════════
+
+name: Build and Push Docker
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRIGGERS
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  # Trigger on push to main branch
+  push:
+    branches: [main]
+  
+  # Allow this workflow to be called from other workflows (like release.yml)
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version tag (e.g., 1.0.0)'
+        required: false
+        type: string
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PERMISSIONS
+# Required to push to GHCR
+# ─────────────────────────────────────────────────────────────────────────────
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUILD BACKEND IMAGE
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-backend:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Login to GitHub Container Registry
+      # Uses the automatic GITHUB_TOKEN - no secrets needed!
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Determine image tags
+      # If version input is provided → use it (from release workflow)
+      # Otherwise → use 'latest'
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Determine tags
+        id: tags
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          if [ -n "${{ inputs.version }}" ]; then
+            # Called from release workflow - use version tag
+            echo "tags=ghcr.io/${REPO_LOWER}-backend:${{ inputs.version }},ghcr.io/${REPO_LOWER}-backend:latest" >> $GITHUB_OUTPUT
+          else
+            # Push to main - only latest
+            echo "tags=ghcr.io/${REPO_LOWER}-backend:latest" >> $GITHUB_OUTPUT
+          fi
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Build and push the image
+      # Uses Docker Buildx for better caching and multi-platform support
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Build and Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUILD FRONTEND IMAGE
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-frontend:
+    name: Build Frontend Image
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine tags
+        id: tags
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "tags=ghcr.io/${REPO_LOWER}-frontend:${{ inputs.version }},ghcr.io/${REPO_LOWER}-frontend:latest" >> $GITHUB_OUTPUT
+          else
+            echo "tags=ghcr.io/${REPO_LOWER}-frontend:latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
