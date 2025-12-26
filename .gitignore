@@ -1,0 +1,81 @@
+# ════════════════════════════════════════════════════════════
+# BOARD PROJECT - Root .gitignore
+# ════════════════════════════════════════════════════════════
+
+# ────────────────────────────────────────────────────────────
+# IDE & Editors
+# ────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# ────────────────────────────────────────────────────────────
+# OS Generated
+# ────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ────────────────────────────────────────────────────────────
+# Java / Maven (Backend)
+# ────────────────────────────────────────────────────────────
+backend/target/
+backend/*.jar
+backend/*.war
+backend/*.class
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# ────────────────────────────────────────────────────────────
+# Node / Angular (Frontend)
+# ────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+frontend/.npm/
+frontend/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ────────────────────────────────────────────────────────────
+# Environment & Secrets
+# ────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# ────────────────────────────────────────────────────────────
+# Docker
+# ────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ────────────────────────────────────────────────────────────
+# Logs
+# ────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ────────────────────────────────────────────────────────────
+# Test & Coverage Reports
+# ────────────────────────────────────────────────────────────
+backend/target/surefire-reports/
+backend/target/site/jacoco/
+frontend/coverage/
