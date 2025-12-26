@@ -1,0 +1,173 @@
+# ════════════════════════════════════════════════════════════════════════════
+# RELEASE WORKFLOW
+# ════════════════════════════════════════════════════════════════════════════
+# This workflow runs when a release/* or hotfix/* branch is merged to main.
+# It performs:
+#   1. Creates a GitHub Release with auto-generated changelog
+#   2. Creates a Git tag (v1.0.0)
+#   3. Builds and pushes Docker images with version tag
+#   4. Creates a backport PR to sync main → develop
+# ════════════════════════════════════════════════════════════════════════════
+
+name: Release
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRIGGER: When a PR to main is merged (closed + merged = true)
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PERMISSIONS
+# ─────────────────────────────────────────────────────────────────────────────
+permissions:
+  contents: write      # Create releases and tags
+  packages: write      # Push Docker images
+  pull-requests: write # Create backport PR
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # CONDITION: Only run if:
+    #   1. PR was actually merged (not just closed)
+    #   2. Source branch was release/* or hotfix/*
+    # ─────────────────────────────────────────────────────────────────────────
+    if: |
+      github.event.pull_request.merged == true && 
+      (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/'))
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for changelog
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 1: Extract version from branch name
+      # release/1.0.0 → 1.0.0
+      # hotfix/1.0.1 → 1.0.1
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Extract version from branch
+        id: version
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          # Remove 'release/' or 'hotfix/' prefix
+          VERSION="${BRANCH#release/}"
+          VERSION="${VERSION#hotfix/}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 2: Generate changelog from commits since last tag
+      # Lists all commits between the previous tag and HEAD
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag (if any)
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            echo "📋 First release - including all commits"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -50)
+          else
+            echo "📋 Generating changelog since $PREV_TAG"
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Save to file (multiline support)
+          echo "$CHANGELOG" > changelog.txt
+          echo "changelog_file=changelog.txt" >> $GITHUB_OUTPUT
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 3: Create Git tag
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # STEP 4: Create GitHub Release with changelog
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Release v${{ steps.version.outputs.version }}"
+          body_path: changelog.txt
+          generate_release_notes: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUILD DOCKER IMAGES WITH VERSION TAG
+  # Calls the build-push workflow with the version number
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-images:
+    name: Build Versioned Images
+    needs: release
+    uses: ./.github/workflows/build-push.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BACKPORT TO DEVELOP
+  # Creates a PR to sync changes from main back to develop
+  # ═══════════════════════════════════════════════════════════════════════════
+  backport:
+    name: Backport to Develop
+    needs: release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Create a new branch from main and open PR to develop
+      # This ensures develop has all the release changes
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Create backport PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          BRANCH="backport/v${VERSION}"
+          
+          echo "🔄 Creating backport branch: $BRANCH"
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create backport branch from main
+          git checkout main
+          git pull origin main
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+          
+          # Create PR
+          gh pr create \
+            --base develop \
+            --head "$BRANCH" \
+            --title "🔄 Backport v${VERSION} to develop" \
+            --body "This PR syncs the release v${VERSION} changes back to develop.
+            
+            ---
+            
+            **Automated by GitHub Actions**
+            
+            After merging this PR, the develop branch will have all changes from the release."
+          
+          echo "✅ Backport PR created successfully"
