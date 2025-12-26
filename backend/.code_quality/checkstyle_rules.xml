@@ -1,0 +1,233 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    Checkstyle Configuration for Board Project
+    Based on Google Java Style with relaxed rules for developer productivity.
+    
+    Reference: https://checkstyle.org/checks.html
+-->
+<module name="Checker">
+    
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        FILE-LEVEL CHECKS (applied to each file)
+        ═══════════════════════════════════════════════════════════════
+    -->
+    
+    <!-- Maximum line length: 120 characters (Google uses 100, but 120 is more practical) -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a]* href|href|http://|https://|ftp://"/>
+        <message key="maxLineLen" value="Line is longer than {0,number,integer} characters."/>
+    </module>
+    
+    <!-- Ensure files end with a newline (prevents Git diff noise) -->
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf_cr_crlf"/>
+    </module>
+    
+    <!-- No tab characters allowed - use spaces for consistent indentation -->
+    <module name="FileTabCharacter">
+        <property name="eachLine" value="true"/>
+    </module>
+    
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        TREE WALKER CHECKS (applied to Java syntax tree)
+        ═══════════════════════════════════════════════════════════════
+    -->
+    <module name="TreeWalker">
+        
+        <!-- 
+            ─────────────────────────────────────────────────────────────
+            NAMING CONVENTIONS
+            ─────────────────────────────────────────────────────────────
+        -->
+        
+        <!-- Class names: PascalCase (e.g., UserService, BoardController) -->
+        <module name="TypeName">
+            <property name="format" value="^[A-Z][a-zA-Z0-9]*$"/>
+            <message key="name.invalidPattern" value="Type name ''{0}'' must be PascalCase."/>
+        </module>
+        
+        <!-- Method names: camelCase (e.g., getUserById, createBoard) -->
+        <module name="MethodName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+            <message key="name.invalidPattern" value="Method name ''{0}'' must be camelCase."/>
+        </module>
+        
+        <!-- Variable names: camelCase (e.g., userId, boardName) -->
+        <module name="LocalVariableName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Parameter names: camelCase -->
+        <module name="ParameterName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Member variable names: camelCase (no Hungarian notation like mVariable) -->
+        <module name="MemberName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Constants: UPPER_SNAKE_CASE (e.g., MAX_RETRIES, DEFAULT_TIMEOUT) -->
+        <module name="ConstantName">
+            <property name="format" value="^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$"/>
+        </module>
+        
+        <!-- Package names: lowercase with dots (e.g., com.board.service) -->
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+        
+        <!-- 
+            ─────────────────────────────────────────────────────────────
+            IMPORTS
+            ─────────────────────────────────────────────────────────────
+        -->
+        
+        <!-- No unused imports (clean code) -->
+        <module name="UnusedImports"/>
+        
+        <!-- No redundant imports (importing same class twice) -->
+        <module name="RedundantImport"/>
+        
+        <!-- No wildcard imports like java.util.* (explicit imports preferred) -->
+        <module name="AvoidStarImport">
+            <property name="allowStaticMemberImports" value="true"/>
+        </module>
+        
+        <!-- 
+            ─────────────────────────────────────────────────────────────
+            WHITESPACE & FORMATTING
+            ─────────────────────────────────────────────────────────────
+        -->
+        
+        <!-- Space after comma: method(a, b, c) not method(a,b,c) -->
+        <module name="WhitespaceAfter">
+            <property name="tokens" value="COMMA, SEMI"/>
+        </module>
+        
+        <!-- Space around operators: a + b not a+b -->
+        <module name="WhitespaceAround">
+            <property name="allowEmptyConstructors" value="true"/>
+            <property name="allowEmptyMethods" value="true"/>
+            <property name="allowEmptyTypes" value="true"/>
+            <property name="allowEmptyLoops" value="true"/>
+        </module>
+        
+        <!-- No whitespace after unary operators: !valid not ! valid -->
+        <module name="NoWhitespaceAfter">
+            <property name="tokens" value="BNOT, DEC, DOT, INC, LNOT, UNARY_MINUS, UNARY_PLUS"/>
+        </module>
+        
+        <!-- Opening brace on same line: if (x) { not if (x) \n { -->
+        <module name="LeftCurly">
+            <property name="option" value="eol"/>
+        </module>
+        
+        <!-- Closing brace alone on line -->
+        <module name="RightCurly">
+            <property name="option" value="same"/>
+        </module>
+        
+        <!-- 
+            ─────────────────────────────────────────────────────────────
+            CODING BEST PRACTICES
+            ─────────────────────────────────────────────────────────────
+        -->
+        
+        <!-- Always use braces for if/else/for/while (even single line) -->
+        <module name="NeedBraces"/>
+        
+        <!-- No empty blocks (empty if, empty catch, etc.) -->
+        <module name="EmptyBlock">
+            <property name="option" value="TEXT"/>
+            <property name="tokens" value="LITERAL_TRY, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE, LITERAL_SWITCH"/>
+        </module>
+        
+        <!-- switch must have default case -->
+        <module name="MissingSwitchDefault"/>
+        
+        <!-- No fall-through in switch without comment -->
+        <module name="FallThrough"/>
+        
+        <!-- String equality: use .equals() not == -->
+        <module name="StringLiteralEquality"/>
+        
+        <!-- No nested try-catch deeper than 2 levels -->
+        <module name="NestedTryDepth">
+            <property name="max" value="2"/>
+        </module>
+        
+        <!-- No deeply nested if/else (max 3 levels) -->
+        <module name="NestedIfDepth">
+            <property name="max" value="3"/>
+        </module>
+        
+        <!-- 
+            ─────────────────────────────────────────────────────────────
+            JAVADOC (RELAXED - only for public API)
+            ─────────────────────────────────────────────────────────────
+        -->
+        
+        <!-- Javadoc required only for public classes (not inner classes) -->
+        <module name="JavadocType">
+            <property name="scope" value="public"/>
+            <property name="allowMissingParamTags" value="true"/>
+        </module>
+        
+        <!-- 
+            NOTE: We intentionally DO NOT require Javadoc for methods.
+            This avoids the frustrating situation where you have many params
+            and limited line length. Good method/variable names > forced docs.
+            
+            If you want to add it later, uncomment:
+            <module name="JavadocMethod">
+                <property name="scope" value="public"/>
+                <property name="allowMissingParamTags" value="true"/>
+                <property name="allowMissingReturnTag" value="true"/>
+            </module>
+        -->
+        
+        <!-- 
+            ─────────────────────────────────────────────────────────────
+            SIZE LIMITS (prevent overly complex code)
+            ─────────────────────────────────────────────────────────────
+        -->
+        
+        <!-- Max 30 methods per class (split large classes) -->
+        <module name="MethodCount">
+            <property name="maxTotal" value="30"/>
+        </module>
+        
+        <!-- Max 50 lines per method (split long methods) -->
+        <module name="MethodLength">
+            <property name="max" value="50"/>
+        </module>
+        
+        <!-- Max 7 parameters per method (use objects for more) -->
+        <module name="ParameterNumber">
+            <property name="max" value="7"/>
+            <property name="ignoreAnnotatedBy" value="Override"/>
+        </module>
+        
+        <!-- 
+            ─────────────────────────────────────────────────────────────
+            SUPPRESSIONS (for annotations like @SuppressWarnings)
+            ─────────────────────────────────────────────────────────────
+        -->
+        
+        <!-- Allow @SuppressWarnings("checkstyle:...") to disable specific checks -->
+        <module name="SuppressWarningsHolder"/>
+        
+    </module>
+    
+    <!-- Enable @SuppressWarnings support -->
+    <module name="SuppressWarningsFilter"/>
+    
+</module>

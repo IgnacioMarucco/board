@@ -1,0 +1,154 @@
+<?xml version="1.0"?>
+<ruleset name="Board Project PMD Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        PMD Rules for Board Project - Focused on bug prevention and best practices.
+        Reference: https://pmd.github.io/latest/pmd_rules_java.html
+    </description>
+
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        BEST PRACTICES
+        Rules that enforce generally accepted best practices
+        ═══════════════════════════════════════════════════════════════
+    -->
+    
+    <!-- Don't ignore exceptions with empty catch blocks -->
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
+        <properties>
+            <property name="allowCommentedBlocks" value="true"/>
+        </properties>
+    </rule>
+    
+    <!-- Avoid unused local variables -->
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
+    
+    <!-- Avoid unused private methods -->
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod"/>
+    
+    <!-- Avoid unused private fields -->
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateField"/>
+    
+    <!-- Avoid unused formal parameters in methods -->
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter"/>
+    
+    <!-- Use @Override annotation when overriding methods -->
+    <rule ref="category/java/bestpractices.xml/MissingOverride"/>
+
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        ERROR PRONE
+        Rules that detect constructs that are likely bugs
+        ═══════════════════════════════════════════════════════════════
+    -->
+    
+    <!-- Don't compare objects with == when you mean .equals() -->
+    <rule ref="category/java/errorprone.xml/CompareObjectsWithEquals"/>
+    
+    <!-- Don't compare strings with == -->
+    <rule ref="category/java/errorprone.xml/UseEqualsToCompareStrings"/>
+    
+    <!-- Avoid null pointer exceptions with proper null checks -->
+    <rule ref="category/java/errorprone.xml/NullAssignment"/>
+    
+    <!-- Return an empty collection instead of null -->
+    <rule ref="category/java/errorprone.xml/ReturnEmptyCollectionRatherThanNull"/>
+    
+    <!-- Avoid empty if/while/for/switch statements -->
+    <rule ref="category/java/errorprone.xml/EmptyIfStmt"/>
+    <rule ref="category/java/errorprone.xml/EmptyWhileStmt"/>
+    <rule ref="category/java/errorprone.xml/EmptyTryBlock"/>
+    <rule ref="category/java/errorprone.xml/EmptyFinallyBlock"/>
+    <rule ref="category/java/errorprone.xml/EmptySwitchStatements"/>
+    
+    <!-- Avoid reassigning parameters (confusing and error-prone) -->
+    <rule ref="category/java/bestpractices.xml/AvoidReassigningParameters"/>
+    
+    <!-- Methods should not just return the literal 'null' -->
+    <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock"/>
+    
+    <!-- Avoid jumbled incrementers in for loops: for(int i=0; i<10; j++) -->
+    <rule ref="category/java/errorprone.xml/JumbledIncrementer"/>
+    
+    <!-- Don't use octal values unintentionally: int x = 010; // This is 8! -->
+    <rule ref="category/java/errorprone.xml/AvoidUsingOctalValues"/>
+    
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        CODE STYLE
+        Rules that promote clean, readable code
+        ═══════════════════════════════════════════════════════════════
+    -->
+    
+    <!-- Avoid deeply nested if statements (max 3 levels) -->
+    <rule ref="category/java/design.xml/AvoidDeeplyNestedIfStmts">
+        <properties>
+            <property name="problemDepth" value="3"/>
+        </properties>
+    </rule>
+    
+    <!-- Avoid very long methods (max 50 statements) -->
+    <rule ref="category/java/design.xml/ExcessiveMethodLength">
+        <properties>
+            <property name="minimum" value="50"/>
+        </properties>
+    </rule>
+    
+    <!-- Avoid classes with too many methods (max 30) -->
+    <rule ref="category/java/design.xml/TooManyMethods">
+        <properties>
+            <property name="maxmethods" value="30"/>
+        </properties>
+    </rule>
+    
+    <!-- Avoid methods with too many parameters (max 7) -->
+    <rule ref="category/java/design.xml/ExcessiveParameterList">
+        <properties>
+            <property name="minimum" value="8"/>
+        </properties>
+    </rule>
+    
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        PERFORMANCE
+        Rules that flag suboptimal code patterns
+        ═══════════════════════════════════════════════════════════════
+    -->
+    
+    <!-- Use StringBuilder instead of string concatenation in loops -->
+    <rule ref="category/java/performance.xml/ConsecutiveLiteralAppends"/>
+    <rule ref="category/java/performance.xml/InefficientStringBuffering"/>
+    
+    <!-- Avoid instantiating objects in loops if possible -->
+    <rule ref="category/java/performance.xml/AvoidInstantiatingObjectsInLoops"/>
+    
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        SECURITY (basic)
+        Rules that detect potential security issues
+        ═══════════════════════════════════════════════════════════════
+    -->
+    
+    <!-- Don't hardcode IP addresses -->
+    <rule ref="category/java/bestpractices.xml/AvoidUsingHardCodedIP"/>
+    
+    <!-- 
+        ═══════════════════════════════════════════════════════════════
+        EXCLUSIONS
+        Things we intentionally DON'T check to avoid annoyance
+        ═══════════════════════════════════════════════════════════════
+        
+        NOT included (too strict or opinionated):
+        - LongVariable: Some descriptive names are good
+        - ShortVariable: 'id', 'i' are fine in context
+        - AtLeastOneConstructor: Not needed with Lombok
+        - BeanMembersShouldSerialize: DTOs don't need serialVersionUID
+        - CommentRequired: Good names > forced comments
+        - LawOfDemeter: Too strict for Spring apps
+        - TooManyFields: Some entities need many fields
+    -->
+
+</ruleset>
