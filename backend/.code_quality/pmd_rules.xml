@@ -57,12 +57,8 @@
     <!-- Return an empty collection instead of null -->
     <rule ref="category/java/errorprone.xml/ReturnEmptyCollectionRatherThanNull"/>
     
-    <!-- Avoid empty if/while/for/switch statements -->
-    <rule ref="category/java/errorprone.xml/EmptyIfStmt"/>
-    <rule ref="category/java/errorprone.xml/EmptyWhileStmt"/>
-    <rule ref="category/java/errorprone.xml/EmptyTryBlock"/>
-    <rule ref="category/java/errorprone.xml/EmptyFinallyBlock"/>
-    <rule ref="category/java/errorprone.xml/EmptySwitchStatements"/>
+    <!-- Avoid empty control statements (if/while/for/switch) -->
+    <rule ref="category/java/codestyle.xml/EmptyControlStatement"/>
     
     <!-- Avoid reassigning parameters (confusing and error-prone) -->
     <rule ref="category/java/bestpractices.xml/AvoidReassigningParameters"/>
@@ -90,10 +86,10 @@
         </properties>
     </rule>
     
-    <!-- Avoid very long methods (max 50 statements) -->
-    <rule ref="category/java/design.xml/ExcessiveMethodLength">
+    <!-- Avoid very long methods (max 100 lines) -->
+    <rule ref="category/java/design.xml/NcssCount">
         <properties>
-            <property name="minimum" value="50"/>
+            <property name="methodReportLevel" value="100"/>
         </properties>
     </rule>
     

@@ -174,7 +174,20 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.21.0</version>
+                <version>3.28.0</version>
+                <dependencies>
+                    <!-- Use PMD 7.19.0 to eliminate deprecation warnings -->
+                    <dependency>
+                        <groupId>net.sourceforge.pmd</groupId>
+                        <artifactId>pmd-core</artifactId>
+                        <version>7.19.0</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>net.sourceforge.pmd</groupId>
+                        <artifactId>pmd-java</artifactId>
+                        <version>7.19.0</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
                     <rulesets>
                         <ruleset>.code_quality/pmd_rules.xml</ruleset>
