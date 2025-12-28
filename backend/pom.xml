@@ -181,6 +181,9 @@
                     </rulesets>
                     <failOnViolation>true</failOnViolation>
                     <printFailingErrors>true</printFailingErrors>
+                    <excludeRoots>
+                        <excludeRoot>target/generated-sources/annotations</excludeRoot>
+                    </excludeRoots>
                 </configuration>
                 <executions>
                     <execution>
