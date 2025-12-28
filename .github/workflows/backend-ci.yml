@@ -5,7 +5,7 @@
 # It runs: Checkstyle (code style) → PMD (static analysis) → Tests → Coverage
 # ════════════════════════════════════════════════════════════════════════════
 
-name: Backend CI
+name: Backend CI / Validate Backend
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TRIGGER: When does this workflow run?
@@ -19,7 +19,6 @@ on:
 
 jobs:
   validate:
-    name: Validate Backend
     runs-on: ubuntu-latest  # GitHub-hosted Linux runner (free)
     
     # All commands run from the backend/ directory
