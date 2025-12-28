@@ -49,4 +49,26 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, errors);
     }
+
+    /**
+     * Handles NotFoundException.
+     *
+     * @param ex the exception
+     * @return problem detail response
+     */
+    @ExceptionHandler(NotFoundException.class)
+    public ProblemDetail handleNotFound(NotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    /**
+     * Handles ForbiddenException.
+     *
+     * @param ex the exception
+     * @return problem detail response
+     */
+    @ExceptionHandler(ForbiddenException.class)
+    public ProblemDetail handleForbidden(ForbiddenException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
 }
