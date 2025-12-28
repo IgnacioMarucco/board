@@ -81,7 +81,7 @@ jobs:
         if: always()  # Upload even if tests fail
         with:
           name: jacoco-report
-          path: backend/target/site/jacoco/
+          path: target/site/jacoco/
           retention-days: 7  # Delete after 7 days to save storage
 
       # ─────────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ jobs:
         uses: madrapps/jacoco-report@v1.6.1
         if: github.event_name == 'pull_request'
         with:
-          paths: backend/target/site/jacoco/jacoco.xml
+          paths: target/site/jacoco/jacoco.xml
           token: ${{ secrets.GITHUB_TOKEN }}  # Provided by GitHub automatically
           min-coverage-overall: 0             # Don't fail on low coverage (yet)
           min-coverage-changed-files: 0       # Don't fail on low coverage (yet)
