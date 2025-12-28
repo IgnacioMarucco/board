@@ -1,7 +1,10 @@
 package com.board.entity;
 
+import com.board.entity.enums.AttachmentType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -13,8 +16,8 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Represents a file attachment on work items, comments, or ceremonies.
- * Files are stored externally (e.g., MinIO) and referenced by storageKey.
+ * Represents a file attachment for various entities.
+ * Files are stored in MinIO and referenced by filename.
  */
 @Entity
 @Table(name = "attachments")
@@ -25,41 +28,31 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 public class Attachment extends BaseEntity {
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 500)
     private String filename;
 
-    @Column(name = "storage_key", nullable = false, length = 500)
-    private String storageKey;
+    @Column(name = "original_filename", nullable = false, length = 255)
+    private String originalFilename;
 
     @Column(name = "content_type", nullable = false, length = 100)
     private String contentType;
 
-    @Column(nullable = false)
-    private Long size;
+    @Column(name = "file_size", nullable = false)
+    private Long fileSize;
+
+    @Column(nullable = false, length = 1000)
+    private String url;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "entity_type", nullable = false, length = 50)
+    private AttachmentType entityType;
+
+    @Column(name = "entity_id", nullable = false)
+    private Long entityId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uploaded_by_id", nullable = false)
     private User uploadedBy;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "epic_id")
-    private Epic epic;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "story_id")
-    private Story story;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_id")
-    private Task task;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "comment_id")
-    private Comment comment;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ceremony_id")
-    private Ceremony ceremony;
 
     /**
      * Checks if this attachment is an image.
