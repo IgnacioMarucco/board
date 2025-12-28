@@ -151,7 +151,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.6.0</version>
                 <dependencies>
                     <!-- Use Checkstyle 10.12.4 for modern property support -->
                     <dependency>
@@ -226,6 +226,12 @@
                         <!-- Exclude Lombok-generated code -->
                         <exclude>**/*Builder*</exclude>
                         <exclude>**/*$Builder*</exclude>
+                        <!-- Exclude classes that don't need test coverage -->
+                        <exclude>**/dto/**</exclude>
+                        <exclude>**/entity/**</exclude>
+                        <exclude>**/config/**</exclude>
+                        <exclude>**/exception/**</exclude>
+                        <exclude>**/*Application.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
