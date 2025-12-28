@@ -95,7 +95,7 @@ jobs:
         uses: madrapps/jacoco-report@v1.7.2
         if: github.event_name == 'pull_request' && steps.test.outcome == 'success'  # Upload only if tests passed
         with:
-          paths: backend/target/site/jacoco/jacoco.xml
+          paths: ${{ github.workspace }}/backend/target/site/jacoco/jacoco.xml
           token: ${{ secrets.GITHUB_TOKEN }}  # Provided by GitHub automatically
           min-coverage-overall: 0             # Don't fail on low coverage (yet)
           min-coverage-changed-files: 0       # Don't fail on low coverage (yet)
