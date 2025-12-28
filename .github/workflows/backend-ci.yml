@@ -6,6 +6,9 @@
 # ════════════════════════════════════════════════════════════════════════════
 
 name: Backend CI / Validate Backend
+permissions:
+  contents: read
+  pull-requests: write
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TRIGGER: When does this workflow run?
