@@ -16,5 +16,7 @@ public interface RetroItemRepository extends JpaRepository<RetroItem, Long> {
 
     List<RetroItem> findByCeremonyOrderByVotesDesc(Ceremony ceremony);
 
+    List<RetroItem> findByCeremonyOrderByVotesDescCreatedAtAsc(Ceremony ceremony);
+
     List<RetroItem> findByCeremonyAndCategory(Ceremony ceremony, RetroCategory category);
 }
