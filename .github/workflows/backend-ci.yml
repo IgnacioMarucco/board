@@ -20,7 +20,6 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest  # GitHub-hosted Linux runner (free)
-    
     # All commands run from the backend/ directory
     defaults:
       run:
@@ -70,6 +69,7 @@ jobs:
       # JaCoCo plugin generates coverage report in target/site/jacoco/
       # ─────────────────────────────────────────────────────────────────────
       - name: Run Tests with Coverage
+        id: test
         run: mvn verify
 
       # ─────────────────────────────────────────────────────────────────────
@@ -78,10 +78,10 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
-        if: always()  # Upload even if tests fail
+        if: steps.test.outcome == 'success'  # Upload only if tests passed
         with:
           name: jacoco-report
-          path: target/site/jacoco/
+          path: backend/target/site/jacoco/
           retention-days: 7  # Delete after 7 days to save storage
 
       # ─────────────────────────────────────────────────────────────────────
@@ -90,9 +90,9 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
       - name: Add Coverage to PR
         uses: madrapps/jacoco-report@v1.6.1
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.test.outcome == 'success'  # Upload only if tests passed
         with:
-          paths: target/site/jacoco/jacoco.xml
+          paths: backend/target/site/jacoco/jacoco.xml
           token: ${{ secrets.GITHUB_TOKEN }}  # Provided by GitHub automatically
           min-coverage-overall: 0             # Don't fail on low coverage (yet)
           min-coverage-changed-files: 0       # Don't fail on low coverage (yet)
