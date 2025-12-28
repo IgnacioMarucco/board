@@ -18,7 +18,6 @@ on:
 
 jobs:
   check-branch-name:
-    name: Validate Branch Name
     runs-on: ubuntu-latest
     
     steps:

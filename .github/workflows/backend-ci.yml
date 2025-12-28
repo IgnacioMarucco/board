@@ -19,7 +19,6 @@ on:
 
 jobs:
   validate:
-    name: Validate Backend
     runs-on: ubuntu-latest  # GitHub-hosted Linux runner (free)
     
     # All commands run from the backend/ directory
