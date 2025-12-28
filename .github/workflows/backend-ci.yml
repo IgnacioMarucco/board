@@ -5,7 +5,7 @@
 # It runs: Checkstyle (code style) → PMD (static analysis) → Tests → Coverage
 # ════════════════════════════════════════════════════════════════════════════
 
-name: Backend CI
+name: Backend CI / Validate Backend
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TRIGGER: When does this workflow run?

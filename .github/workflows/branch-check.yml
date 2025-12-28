@@ -7,7 +7,7 @@
 #   - PRs to 'main' must come from: release/* or hotfix/*
 # ════════════════════════════════════════════════════════════════════════════
 
-name: Branch Naming Convention
+name: Branch Naming Convention / Validate Branch Name
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TRIGGER: Runs on all PRs to protected branches
