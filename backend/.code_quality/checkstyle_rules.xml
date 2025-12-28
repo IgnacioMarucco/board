@@ -213,7 +213,7 @@
         <!-- Max 7 parameters per method (use objects for more) -->
         <module name="ParameterNumber">
             <property name="max" value="7"/>
-            <property name="ignoreAnnotatedBy" value="Override"/>
+            <!-- Note: ignoreAnnotatedBy is NOT supported by ParameterNumber check -->
         </module>
         
         <!-- 
