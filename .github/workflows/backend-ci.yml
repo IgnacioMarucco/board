@@ -36,13 +36,6 @@ jobs:
         uses: actions/checkout@v4
 
       # ─────────────────────────────────────────────────────────────────────
-      # STEP 1.5: URU
-      # ─────────────────────────────────────────────────────────────────────
-      - name: Debug
-        run: |
-          echo "$(pwd)"
-
-      # ─────────────────────────────────────────────────────────────────────
       # STEP 2: Setup Java - Install JDK 17 and cache Maven dependencies
       # ─────────────────────────────────────────────────────────────────────
       - name: Set up JDK 17
@@ -91,9 +84,6 @@ jobs:
       # STEP 7: PR Comment - Add coverage summary as a comment on the PR
       # Shows % coverage for changed files vs overall project
       # ─────────────────────────────────────────────────────────────────────
-      - run:  echo "${{ github.workspace }}"
-
-
       - name: Add Coverage to PR
         uses: madrapps/jacoco-report@v1.7.2
         if: github.event_name == 'pull_request' && steps.test.outcome == 'success'  # Upload only if tests passed
