@@ -88,8 +88,11 @@ jobs:
       # STEP 7: PR Comment - Add coverage summary as a comment on the PR
       # Shows % coverage for changed files vs overall project
       # ─────────────────────────────────────────────────────────────────────
+      - run:  echo "${{ github.workspace }}"
+
+
       - name: Add Coverage to PR
-        uses: madrapps/jacoco-report@v1.6.1
+        uses: madrapps/jacoco-report@v1.7.2
         if: github.event_name == 'pull_request' && steps.test.outcome == 'success'  # Upload only if tests passed
         with:
           paths: backend/target/site/jacoco/jacoco.xml
