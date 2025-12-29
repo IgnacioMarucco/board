@@ -2,27 +2,38 @@ package com.board.service.impl;
 
 import com.board.dto.sprint.SprintCreateRequest;
 import com.board.dto.sprint.SprintResponse;
+import com.board.dto.sprint.SprintSummaryResponse;
 import com.board.dto.sprint.SprintUpdateRequest;
+import com.board.entity.Ceremony;
 import com.board.entity.Project;
 import com.board.entity.Sprint;
+import com.board.entity.Story;
 import com.board.entity.User;
+import com.board.entity.enums.CeremonyStatus;
+import com.board.entity.enums.CeremonyType;
 import com.board.entity.enums.Role;
 import com.board.entity.enums.SprintStatus;
 import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.SprintMapper;
+import com.board.repository.CeremonyRepository;
 import com.board.repository.ProjectMemberRepository;
 import com.board.repository.ProjectRepository;
 import com.board.repository.SprintRepository;
+import com.board.repository.StoryRepository;
 import com.board.repository.UserRepository;
 import com.board.service.SprintService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of SprintService.
@@ -35,6 +46,8 @@ public class SprintServiceImpl implements SprintService {
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;
+    private final StoryRepository storyRepository;
+    private final CeremonyRepository ceremonyRepository;
     private final SprintMapper sprintMapper;
 
     @Override
@@ -52,11 +65,13 @@ public class SprintServiceImpl implements SprintService {
                 .goal(request.getGoal())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
+                .capacityPoints(request.getCapacityPoints())
                 .status(SprintStatus.PLANNING)
                 .project(project)
                 .build();
 
         sprint = sprintRepository.save(sprint);
+        createDefaultCeremonies(sprint);
         return sprintMapper.toResponse(sprint);
     }
 
@@ -121,6 +136,9 @@ public class SprintServiceImpl implements SprintService {
             }
             sprint.setEndDate(request.getEndDate());
         }
+        if (request.getCapacityPoints() != null) {
+            sprint.setCapacityPoints(request.getCapacityPoints());
+        }
 
         sprint = sprintRepository.save(sprint);
         return sprintMapper.toResponse(sprint);
@@ -163,7 +181,10 @@ public class SprintServiceImpl implements SprintService {
             throw new BadRequestException("Cannot start a new sprint while another is active");
         }
 
+        applyCommittedScope(sprint);
+        validateSprintCapacity(sprint);
         sprint.setStatus(SprintStatus.ACTIVE);
+        sprint.setStartedAt(LocalDateTime.now());
         sprint = sprintRepository.save(sprint);
         return sprintMapper.toResponse(sprint);
     }
@@ -181,9 +202,25 @@ public class SprintServiceImpl implements SprintService {
             throw new BadRequestException("Only active sprints can be completed");
         }
 
+        applyCompletionSummary(sprint);
+        moveIncompleteStoriesToBacklog(sprint);
         sprint.setStatus(SprintStatus.COMPLETED);
+        sprint.setCompletedAt(LocalDateTime.now());
         sprint = sprintRepository.save(sprint);
         return sprintMapper.toResponse(sprint);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SprintSummaryResponse getSprintSummary(Long projectId, Long sprintId, Long userId) {
+        Project project = findProjectById(projectId);
+        validateMembership(project, userId);
+
+        Sprint sprint = findSprintById(sprintId);
+        validateSprintBelongsToProject(sprint, project);
+
+        SprintSummaryResponse summary = buildSummary(sprint);
+        return summary;
     }
 
     private Project findProjectById(Long projectId) {
@@ -235,5 +272,122 @@ public class SprintServiceImpl implements SprintService {
             }
         }
         throw new ForbiddenException("You are not allowed to perform this action");
+    }
+
+    private void createDefaultCeremonies(Sprint sprint) {
+        List<Ceremony> ceremonies = new ArrayList<>();
+        ceremonies.add(createCeremony(sprint, CeremonyType.PLANNING,
+                sprint.getStartDate().atTime(LocalTime.of(9, 0)), 120));
+        ceremonies.add(createCeremony(sprint, CeremonyType.REVIEW,
+                sprint.getEndDate().atTime(LocalTime.of(16, 0)), 60));
+        ceremonies.add(createCeremony(sprint, CeremonyType.RETROSPECTIVE,
+                sprint.getEndDate().atTime(LocalTime.of(17, 0)), 60));
+        ceremonyRepository.saveAll(ceremonies);
+    }
+
+    private Ceremony createCeremony(Sprint sprint, CeremonyType type,
+            java.time.LocalDateTime scheduledAt, Integer durationMinutes) {
+        return Ceremony.builder()
+                .type(type)
+                .scheduledAt(scheduledAt)
+                .durationMinutes(durationMinutes)
+                .status(CeremonyStatus.SCHEDULED)
+                .sprint(sprint)
+                .build();
+    }
+
+    private void applyCommittedScope(Sprint sprint) {
+        List<Story> stories = storyRepository.findBySprint(sprint).stream()
+                .filter(Story::isActive)
+                .collect(Collectors.toList());
+        int committedPoints = stories.stream()
+                .map(Story::getStoryPoints)
+                .filter(points -> points != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+        sprint.setCommittedPoints(committedPoints);
+        sprint.setCommittedStoryCount(stories.size());
+    }
+
+    private void validateSprintCapacity(Sprint sprint) {
+        Integer capacityPoints = sprint.getCapacityPoints();
+        if (capacityPoints == null || capacityPoints <= 0) {
+            return;
+        }
+        if (sprint.getCommittedPoints() > capacityPoints) {
+            throw new BadRequestException("Sprint capacity exceeded by committed scope");
+        }
+    }
+
+    private void applyCompletionSummary(Sprint sprint) {
+        List<Story> stories = storyRepository.findBySprint(sprint).stream()
+                .filter(Story::isActive)
+                .collect(Collectors.toList());
+        List<Story> completed = stories.stream()
+                .filter(story -> story.getStatus() == com.board.entity.enums.StoryStatus.DONE)
+                .collect(Collectors.toList());
+        int completedPoints = completed.stream()
+                .map(Story::getStoryPoints)
+                .filter(points -> points != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+        int spilloverCount = (int) stories.stream()
+                .filter(story -> story.getStatus() != com.board.entity.enums.StoryStatus.DONE)
+                .count();
+
+        sprint.setCompletedPoints(completedPoints);
+        sprint.setCompletedStoryCount(completed.size());
+        sprint.setSpilloverCount(spilloverCount);
+    }
+
+    private void moveIncompleteStoriesToBacklog(Sprint sprint) {
+        List<Story> incomplete = storyRepository.findBySprint(sprint).stream()
+                .filter(Story::isActive)
+                .filter(story -> story.getStatus() != com.board.entity.enums.StoryStatus.DONE)
+                .collect(Collectors.toList());
+
+        if (incomplete.isEmpty()) {
+            return;
+        }
+
+        Project project = sprint.getProject();
+        int startPosition = (int) storyRepository
+                .findByEpicProjectAndSprintIsNullOrderByPositionAsc(project)
+                .stream()
+                .filter(Story::isActive)
+                .count();
+
+        int position = startPosition;
+        for (Story story : incomplete) {
+            story.setSprint(null);
+            story.setBoardColumn(null);
+            story.setSprintAddedAt(null);
+            story.setPosition(position++);
+        }
+
+        storyRepository.saveAll(incomplete);
+    }
+
+    private SprintSummaryResponse buildSummary(Sprint sprint) {
+        SprintSummaryResponse.SprintSummaryResponseBuilder builder = SprintSummaryResponse.builder()
+                .sprintId(sprint.getId())
+                .sprintName(sprint.getName())
+                .status(sprint.getStatus())
+                .startDate(sprint.getStartDate())
+                .endDate(sprint.getEndDate())
+                .startedAt(sprint.getStartedAt())
+                .completedAt(sprint.getCompletedAt())
+                .committedPoints(sprint.getCommittedPoints())
+                .committedStoryCount(sprint.getCommittedStoryCount())
+                .completedPoints(sprint.getCompletedPoints())
+                .completedStoryCount(sprint.getCompletedStoryCount())
+                .spilloverCount(sprint.getSpilloverCount())
+                .scopeChangeCount(sprint.getScopeChangeCount());
+
+        double completionRate = 0.0d;
+        if (sprint.getCommittedPoints() != null && sprint.getCommittedPoints() > 0) {
+            completionRate = (double) sprint.getCompletedPoints() / sprint.getCommittedPoints();
+        }
+        return builder.completionRate(completionRate).build();
     }
 }

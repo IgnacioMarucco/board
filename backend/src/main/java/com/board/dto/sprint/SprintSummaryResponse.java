@@ -10,25 +10,26 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Response DTO for sprint data.
+ * Response DTO for sprint summary metrics.
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SprintResponse {
+public class SprintSummaryResponse {
 
-    private Long id;
-    private String name;
-    private String goal;
+    private Long sprintId;
+    private String sprintName;
+    private SprintStatus status;
     private LocalDate startDate;
     private LocalDate endDate;
-    private Integer capacityPoints;
-    private SprintStatus status;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
-    private Long projectId;
-    private String projectKey;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private Integer committedPoints;
+    private Integer committedStoryCount;
+    private Integer completedPoints;
+    private Integer completedStoryCount;
+    private Integer spilloverCount;
+    private Integer scopeChangeCount;
+    private Double completionRate;
 }

@@ -1,6 +1,7 @@
 package com.board.dto.ceremony;
 
 import com.board.entity.enums.CeremonyType;
+import com.board.entity.enums.RetroTemplate;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
@@ -30,6 +31,8 @@ public class CeremonyCreateRequest {
     private Integer durationMinutes;
 
     private String notes;
+
+    private RetroTemplate retroTemplate;
 
     private Set<Long> participantIds;
 }

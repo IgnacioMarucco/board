@@ -6,14 +6,17 @@ import com.board.dto.retroitem.RetroItemUpdateRequest;
 import com.board.entity.Ceremony;
 import com.board.entity.Project;
 import com.board.entity.RetroItem;
+import com.board.entity.RetroItemVote;
 import com.board.entity.User;
 import com.board.exception.BadRequestException;
+import com.board.exception.ConflictException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.RetroItemMapper;
 import com.board.repository.CeremonyRepository;
 import com.board.repository.ProjectMemberRepository;
 import com.board.repository.RetroItemRepository;
+import com.board.repository.RetroItemVoteRepository;
 import com.board.repository.UserRepository;
 import com.board.service.RetroItemService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,7 @@ import java.util.List;
 public class RetroItemServiceImpl implements RetroItemService {
 
     private final RetroItemRepository retroItemRepository;
+    private final RetroItemVoteRepository retroItemVoteRepository;
     private final CeremonyRepository ceremonyRepository;
     private final UserRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
@@ -93,6 +97,17 @@ public class RetroItemServiceImpl implements RetroItemService {
         RetroItem retroItem = findRetroItemById(retroItemId);
         validateMembership(retroItem.getCeremony().getSprint().getProject(), userId);
 
+        User voter = findUserById(userId);
+        retroItemVoteRepository.findByRetroItemAndVoter(retroItem, voter)
+                .ifPresent(existing -> {
+                    throw new ConflictException("You have already voted on this retro item");
+                });
+
+        RetroItemVote vote = RetroItemVote.builder()
+                .retroItem(retroItem)
+                .voter(voter)
+                .build();
+        retroItemVoteRepository.save(vote);
         retroItem.addVote();
         retroItem = retroItemRepository.save(retroItem);
 

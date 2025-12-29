@@ -7,7 +7,10 @@ import com.board.entity.Ceremony;
 import com.board.entity.Project;
 import com.board.entity.Sprint;
 import com.board.entity.User;
+import com.board.entity.enums.CeremonyType;
 import com.board.entity.enums.Role;
+import com.board.entity.enums.RetroTemplate;
+import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.CeremonyMapper;
@@ -47,6 +50,17 @@ public class CeremonyServiceImpl implements CeremonyService {
         Set<User> participants = new HashSet<>();
         if (request.getParticipantIds() != null && !request.getParticipantIds().isEmpty()) {
             participants = findUsersByIds(request.getParticipantIds());
+            validateParticipantsMembership(sprint.getProject(), participants);
+        }
+
+        RetroTemplate retroTemplate = request.getRetroTemplate();
+        if (request.getType() != null && request.getType() != CeremonyType.RETROSPECTIVE
+                && retroTemplate != null) {
+            throw new BadRequestException("Retro template can only be set for retrospectives");
+        }
+        if (request.getType() == CeremonyType.RETROSPECTIVE
+                && retroTemplate == null) {
+            retroTemplate = RetroTemplate.START_STOP_CONTINUE;
         }
 
         Ceremony ceremony = Ceremony.builder()
@@ -54,6 +68,7 @@ public class CeremonyServiceImpl implements CeremonyService {
                 .scheduledAt(request.getScheduledAt())
                 .durationMinutes(request.getDurationMinutes())
                 .notes(request.getNotes())
+                .retroTemplate(retroTemplate)
                 .sprint(sprint)
                 .participants(participants)
                 .build();
@@ -99,8 +114,15 @@ public class CeremonyServiceImpl implements CeremonyService {
         if (request.getNotes() != null) {
             ceremony.setNotes(request.getNotes());
         }
+        if (request.getRetroTemplate() != null) {
+            if (!ceremony.isRetrospective()) {
+                throw new BadRequestException("Retro template can only be set for retrospectives");
+            }
+            ceremony.setRetroTemplate(request.getRetroTemplate());
+        }
         if (request.getParticipantIds() != null) {
             Set<User> participants = findUsersByIds(request.getParticipantIds());
+            validateParticipantsMembership(ceremony.getSprint().getProject(), participants);
             ceremony.setParticipants(participants);
         }
 
@@ -147,6 +169,14 @@ public class CeremonyServiceImpl implements CeremonyService {
         User user = findUserById(userId);
         if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
+        }
+    }
+
+    private void validateParticipantsMembership(Project project, Set<User> participants) {
+        for (User participant : participants) {
+            if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, participant)) {
+                throw new BadRequestException("All participants must be project members");
+            }
         }
     }
 

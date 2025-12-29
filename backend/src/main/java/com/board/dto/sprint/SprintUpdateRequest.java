@@ -1,6 +1,7 @@
 package com.board.dto.sprint;
 
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,4 +27,7 @@ public class SprintUpdateRequest {
     private LocalDate startDate;
 
     private LocalDate endDate;
+
+    @Min(value = 0, message = "Capacity points must be non-negative")
+    private Integer capacityPoints;
 }

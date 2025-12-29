@@ -2,6 +2,7 @@ package com.board.dto.ceremony;
 
 import com.board.entity.enums.CeremonyStatus;
 import com.board.entity.enums.CeremonyType;
+import com.board.entity.enums.RetroTemplate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,6 +26,7 @@ public class CeremonyResponse {
     private Integer durationMinutes;
     private CeremonyStatus status;
     private String notes;
+    private RetroTemplate retroTemplate;
     private Long sprintId;
     private String sprintName;
     private Set<Long> participantIds;

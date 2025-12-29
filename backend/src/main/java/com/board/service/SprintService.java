@@ -2,6 +2,7 @@ package com.board.service;
 
 import com.board.dto.sprint.SprintCreateRequest;
 import com.board.dto.sprint.SprintResponse;
+import com.board.dto.sprint.SprintSummaryResponse;
 import com.board.dto.sprint.SprintUpdateRequest;
 
 import java.util.List;
@@ -79,4 +80,14 @@ public interface SprintService {
      * @return the updated sprint
      */
     SprintResponse completeSprint(Long projectId, Long sprintId, Long userId);
+
+    /**
+     * Gets a summary of sprint metrics.
+     *
+     * @param projectId the project ID
+     * @param sprintId  the sprint ID
+     * @param userId    the requesting user's ID
+     * @return sprint summary metrics
+     */
+    SprintSummaryResponse getSprintSummary(Long projectId, Long sprintId, Long userId);
 }

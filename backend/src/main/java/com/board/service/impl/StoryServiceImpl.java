@@ -13,6 +13,7 @@ import com.board.entity.BoardColumn;
 import com.board.entity.enums.Priority;
 import com.board.entity.enums.Role;
 import com.board.entity.enums.StoryStatus;
+import com.board.entity.enums.SprintStatus;
 import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
@@ -29,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -60,7 +62,9 @@ public class StoryServiceImpl implements StoryService {
             throw new BadRequestException("Story key already exists");
         }
 
-        validateStoryPoints(request.getStoryPoints());
+        if (request.getStoryPoints() != null && !FIBONACCI_POINTS.contains(request.getStoryPoints())) {
+            throw new BadRequestException("Story points must follow the Fibonacci scale");
+        }
 
         Story story = Story.builder()
                 .key(request.getKey().toUpperCase())
@@ -78,13 +82,7 @@ public class StoryServiceImpl implements StoryService {
             story.setEpic(epic);
         }
 
-        if (request.getSprintId() != null) {
-            Sprint sprint = findSprintById(request.getSprintId());
-            validateBelongsToProject(project, sprint.getProject(), "Sprint not found in this project");
-            story.setSprint(sprint);
-            BoardColumn firstColumn = findFirstColumnForProject(project);
-            story.setBoardColumn(firstColumn);
-        }
+        applySprintAssignmentForCreate(project, story, request);
 
         if (request.getAssigneeId() != null) {
             User assignee = findUserById(request.getAssigneeId());
@@ -239,12 +237,6 @@ public class StoryServiceImpl implements StoryService {
         throw new ForbiddenException("You are not allowed to perform this action");
     }
 
-    private void validateStoryPoints(Integer storyPoints) {
-        if (storyPoints != null && !FIBONACCI_POINTS.contains(storyPoints)) {
-            throw new BadRequestException("Story points must follow the Fibonacci scale");
-        }
-    }
-
     private void applyContentUpdates(StoryUpdateRequest request, Story story, Role role,
             Project project, Long userId) {
         if (request.getTitle() != null || request.getDescription() != null
@@ -269,8 +261,13 @@ public class StoryServiceImpl implements StoryService {
         }
         if (request.getStoryPoints() != null) {
             requireRole(role, Role.PRODUCT_OWNER, Role.DEVELOPER);
-            validateStoryPoints(request.getStoryPoints());
+            if (!FIBONACCI_POINTS.contains(request.getStoryPoints())) {
+                throw new BadRequestException("Story points must follow the Fibonacci scale");
+            }
             story.setStoryPoints(request.getStoryPoints());
+            if (story.getSprint() != null) {
+                validateSprintCapacity(story.getSprint(), story);
+            }
         }
         if (request.getAssigneeId() != null) {
             if (role == Role.DEVELOPER && !request.getAssigneeId().equals(userId)) {
@@ -295,7 +292,7 @@ public class StoryServiceImpl implements StoryService {
         if (request.getSprintId() != null) {
             Sprint sprint = findSprintById(request.getSprintId());
             validateBelongsToProject(project, sprint.getProject(), "Sprint not found in this project");
-            handleSprintChange(project, story, sprint);
+            handleSprintChange(project, story, sprint, request.getSprintChangeReason());
         }
         if (request.getBoardColumnId() != null || request.getPosition() != null) {
             validateBoardMovePermissions(story, role);
@@ -335,7 +332,31 @@ public class StoryServiceImpl implements StoryService {
         return (int) scopeStories.stream().filter(Story::isActive).count();
     }
 
-    private void handleSprintChange(Project project, Story story, Sprint newSprint) {
+    private void applySprintAssignmentForCreate(Project project, Story story, StoryCreateRequest request) {
+        if (request.getSprintId() == null) {
+            return;
+        }
+
+        Sprint sprint = findSprintById(request.getSprintId());
+        validateBelongsToProject(project, sprint.getProject(), "Sprint not found in this project");
+        if (sprint.getStatus() == SprintStatus.COMPLETED) {
+            throw new BadRequestException("Cannot add stories to a completed sprint");
+        }
+        if (sprint.getStatus() == SprintStatus.ACTIVE
+                && (request.getSprintChangeReason() == null
+                || request.getSprintChangeReason().isBlank())) {
+            throw new BadRequestException("Sprint scope is locked; provide a reason to add stories");
+        }
+        story.setSprint(sprint);
+        story.setBoardColumn(findFirstColumnForProject(project));
+        validateSprintCapacity(sprint, story);
+        story.setSprintAddedAt(LocalDateTime.now());
+        if (sprint.getStatus() == SprintStatus.ACTIVE) {
+            sprint.setScopeChangeCount(sprint.getScopeChangeCount() + 1);
+        }
+    }
+
+    private void handleSprintChange(Project project, Story story, Sprint newSprint, String reason) {
         Sprint oldSprint = story.getSprint();
         BoardColumn oldColumn = story.getBoardColumn();
 
@@ -350,10 +371,22 @@ public class StoryServiceImpl implements StoryService {
         }
 
         story.setSprint(newSprint);
+        if (newSprint.getStatus() == SprintStatus.COMPLETED) {
+            throw new BadRequestException("Cannot add stories to a completed sprint");
+        }
+        if (newSprint.getStatus() == SprintStatus.ACTIVE
+                && (reason == null || reason.isBlank())) {
+            throw new BadRequestException("Sprint scope is locked; provide a reason to add stories");
+        }
         BoardColumn firstColumn = findFirstColumnForProject(project);
         validateWipLimit(newSprint, firstColumn, story);
+        validateSprintCapacity(newSprint, story);
         story.setBoardColumn(firstColumn);
         story.setPosition(calculateInitialPosition(project, newSprint, firstColumn));
+        story.setSprintAddedAt(LocalDateTime.now());
+        if (newSprint.getStatus() == SprintStatus.ACTIVE) {
+            newSprint.setScopeChangeCount(newSprint.getScopeChangeCount() + 1);
+        }
     }
 
     private void handleBoardMove(Project project, Story story, Long boardColumnId,
@@ -464,6 +497,25 @@ public class StoryServiceImpl implements StoryService {
             throw new BadRequestException("WIP limit exceeded for column");
         }
     }
+
+    private void validateSprintCapacity(Sprint sprint, Story story) {
+        Integer capacityPoints = sprint.getCapacityPoints();
+        if (capacityPoints == null || capacityPoints <= 0) {
+            return;
+        }
+        int totalPoints = storyRepository.findBySprint(sprint).stream()
+                .filter(Story::isActive)
+                .filter(existing -> !existing.getId().equals(story.getId()))
+                .map(Story::getStoryPoints)
+                .filter(points -> points != null)
+                .mapToInt(Integer::intValue)
+                .sum();
+        int storyPoints = story.getStoryPoints() != null ? story.getStoryPoints() : 0;
+        if (totalPoints + storyPoints > capacityPoints) {
+            throw new BadRequestException("Sprint capacity exceeded");
+        }
+    }
+
     private BoardColumn findBoardColumn(Long columnId, Project project) {
         BoardColumn column = boardColumnRepository.findById(columnId)
                 .filter(BoardColumn::isActive)

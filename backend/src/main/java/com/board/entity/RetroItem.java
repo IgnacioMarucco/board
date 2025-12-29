@@ -1,6 +1,7 @@
 package com.board.entity;
 
 import com.board.entity.enums.RetroCategory;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -8,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,6 +17,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Represents a sticky note item in a Sprint Retrospective.
@@ -51,6 +56,10 @@ public class RetroItem extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id")
     private User author;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "retroItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RetroItemVote> voteEntries = new ArrayList<>();
 
     /**
      * Adds a vote to this retro item.
