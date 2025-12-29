@@ -17,6 +17,8 @@ import com.board.repository.ProjectRepository;
 import com.board.repository.StoryRepository;
 import com.board.repository.TaskRepository;
 import com.board.repository.UserRepository;
+import com.board.service.ActivityLogService;
+import com.board.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -59,6 +61,12 @@ class TaskServiceImplTest {
 
     @Mock
     private TaskMapper taskMapper;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private ActivityLogService activityLogService;
 
     @InjectMocks
     private TaskServiceImpl taskService;

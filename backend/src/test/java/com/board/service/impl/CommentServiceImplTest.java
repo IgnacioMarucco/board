@@ -18,6 +18,7 @@ import com.board.repository.ProjectMemberRepository;
 import com.board.repository.StoryRepository;
 import com.board.repository.TaskRepository;
 import com.board.repository.UserRepository;
+import com.board.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -61,6 +62,9 @@ class CommentServiceImplTest {
 
     @Mock
     private CommentMapper commentMapper;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private CommentServiceImpl commentService;

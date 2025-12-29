@@ -63,6 +63,7 @@ class AuthServiceImplTest {
         testUser = User.builder()
                 .id(1L)
                 .email("test@example.com")
+                .username("testuser")
                 .password("hashedPassword")
                 .firstName("Test")
                 .lastName("User")
@@ -88,11 +89,13 @@ class AuthServiceImplTest {
             RegisterRequest request = RegisterRequest.builder()
                     .email("new@example.com")
                     .password("password123")
+                    .username("newuser")
                     .firstName("New")
                     .lastName("User")
                     .build();
 
             when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+            when(userRepository.existsByUsername("newuser")).thenReturn(false);
             when(passwordEncoder.encode(request.getPassword())).thenReturn("hashedPassword");
             when(userRepository.save(any(User.class))).thenReturn(testUser);
             when(jwtService.generateAccessToken(any(), anyString())).thenReturn("access-token");
@@ -117,6 +120,7 @@ class AuthServiceImplTest {
             RegisterRequest request = RegisterRequest.builder()
                     .email("existing@example.com")
                     .password("password123")
+                    .username("existinguser")
                     .firstName("Test")
                     .lastName("User")
                     .build();
@@ -127,6 +131,27 @@ class AuthServiceImplTest {
             assertThatThrownBy(() -> authService.register(request))
                     .isInstanceOf(BadRequestException.class)
                     .hasMessage("Email already registered");
+        }
+
+        @Test
+        @DisplayName("should throw BadRequestException when username already exists")
+        void shouldThrowWhenUsernameExists() {
+            // Given
+            RegisterRequest request = RegisterRequest.builder()
+                    .email("new@example.com")
+                    .password("password123")
+                    .username("existinguser")
+                    .firstName("Test")
+                    .lastName("User")
+                    .build();
+
+            when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+            when(userRepository.existsByUsername("existinguser")).thenReturn(true);
+
+            // When/Then
+            assertThatThrownBy(() -> authService.register(request))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessage("Username already taken");
         }
     }
 

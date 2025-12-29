@@ -2,6 +2,9 @@ package com.board.service.impl;
 
 import com.board.dto.attachment.AttachmentResponse;
 import com.board.entity.Attachment;
+import com.board.entity.Comment;
+import com.board.entity.Epic;
+import com.board.entity.Project;
 import com.board.entity.User;
 import com.board.entity.enums.AttachmentType;
 import com.board.exception.BadRequestException;
@@ -9,6 +12,12 @@ import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.AttachmentMapper;
 import com.board.repository.AttachmentRepository;
+import com.board.repository.CeremonyRepository;
+import com.board.repository.CommentRepository;
+import com.board.repository.EpicRepository;
+import com.board.repository.ProjectMemberRepository;
+import com.board.repository.StoryRepository;
+import com.board.repository.TaskRepository;
 import com.board.repository.UserRepository;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +52,18 @@ class AttachmentServiceImplTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private EpicRepository epicRepository;
+    @Mock
+    private StoryRepository storyRepository;
+    @Mock
+    private TaskRepository taskRepository;
+    @Mock
+    private CommentRepository commentRepository;
+    @Mock
+    private CeremonyRepository ceremonyRepository;
+    @Mock
+    private ProjectMemberRepository projectMemberRepository;
+    @Mock
     private AttachmentMapper attachmentMapper;
     @Mock
     private MinioClient minioClient;
@@ -51,16 +72,24 @@ class AttachmentServiceImplTest {
     private AttachmentServiceImpl attachmentService;
 
     private User testUser;
+    private Project testProject;
+    private Epic testEpic;
+    private Comment testComment;
     private Attachment testAttachment;
     private AttachmentResponse testResponse;
 
     @BeforeEach
     void setUp() {
         testUser = User.builder().id(1L).email("test@example.com").build();
+        testProject = Project.builder().id(1L).key("TEST").name("Test").owner(testUser).build();
+        testEpic = Epic.builder().id(10L).key("EPIC-1").title("Epic").project(testProject).build();
+        testComment = Comment.builder().id(100L).content("Comment").author(testUser).epic(testEpic).build();
         testAttachment = Attachment.builder()
                 .id(1L)
                 .filename("test.pdf")
                 .originalFilename("test.pdf")
+                .entityType(AttachmentType.COMMENT)
+                .entityId(100L)
                 .uploadedBy(testUser)
                 .build();
         testResponse = AttachmentResponse.builder().id(1L).build();
@@ -111,14 +140,17 @@ class AttachmentServiceImplTest {
         @DisplayName("should return attachments for entity")
         void shouldReturnAttachmentsForEntity() {
             // Given
+            when(commentRepository.findById(100L)).thenReturn(Optional.of(testComment));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(attachmentRepository.findByEntityTypeAndEntityIdOrderByCreatedAtDesc(
-                    AttachmentType.COMMENT, 1L)).thenReturn(List.of(testAttachment));
+                    AttachmentType.COMMENT, 100L)).thenReturn(List.of(testAttachment));
             when(attachmentMapper.toResponseList(any())).thenReturn(List.of(testResponse));
 
             // When
             List<AttachmentResponse> responses = attachmentService.getAttachmentsForEntity(
-                    AttachmentType.COMMENT, 1L, 1L);
+                    AttachmentType.COMMENT, 100L, 1L);
 
             // Then
             assertThat(responses).hasSize(1);
@@ -134,7 +166,10 @@ class AttachmentServiceImplTest {
         void shouldReturnAttachmentMetadata() {
             // Given
             when(attachmentRepository.findById(1L)).thenReturn(Optional.of(testAttachment));
+            when(commentRepository.findById(100L)).thenReturn(Optional.of(testComment));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(attachmentMapper.toResponse(testAttachment)).thenReturn(testResponse);
 
             // When
@@ -169,6 +204,10 @@ class AttachmentServiceImplTest {
             User otherUser = User.builder().id(2L).build();
             testAttachment.setUploadedBy(otherUser);
             when(attachmentRepository.findById(1L)).thenReturn(Optional.of(testAttachment));
+            when(commentRepository.findById(100L)).thenReturn(Optional.of(testComment));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
 
             // When/Then
             assertThatThrownBy(() -> attachmentService.deleteAttachment(1L, 1L))
