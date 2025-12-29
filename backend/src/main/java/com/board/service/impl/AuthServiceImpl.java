@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -43,9 +44,15 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Email already registered");
         }
 
+        String normalizedUsername = normalizeUsername(request.getUsername());
+        if (userRepository.existsByUsername(normalizedUsername)) {
+            throw new BadRequestException("Username already taken");
+        }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
+                .username(normalizedUsername)
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .build();
@@ -109,6 +116,7 @@ public class AuthServiceImpl implements AuthService {
                 .user(AuthResponse.UserInfo.builder()
                         .id(user.getId())
                         .email(user.getEmail())
+                        .username(user.getUsername())
                         .firstName(user.getFirstName())
                         .lastName(user.getLastName())
                         .build())
@@ -123,5 +131,9 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         return refreshTokenRepository.save(refreshToken);
+    }
+
+    private String normalizeUsername(String username) {
+        return username == null ? null : username.trim().toLowerCase(Locale.ROOT);
     }
 }

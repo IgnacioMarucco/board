@@ -1,6 +1,7 @@
 package com.board.service;
 
 import com.board.dto.notification.NotificationResponse;
+import com.board.entity.User;
 
 import java.util.List;
 
@@ -48,4 +49,17 @@ public interface NotificationService {
      * @param userId         the requesting user's ID
      */
     void deleteNotification(Long notificationId, Long userId);
+
+    /**
+     * Creates a notification for a recipient.
+     *
+     * @param recipient   the recipient user
+     * @param triggeredBy the actor user
+     * @param type        the notification type
+     * @param title       the title
+     * @param message     the message
+     * @param linkUrl     optional link URL
+     */
+    void createNotification(User recipient, User triggeredBy,
+            String type, String title, String message, String linkUrl);
 }

@@ -77,6 +77,21 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.save(notification);
     }
 
+    @Override
+    @Transactional
+    public void createNotification(User recipient, User triggeredBy,
+            String type, String title, String message, String linkUrl) {
+        Notification notification = Notification.builder()
+                .recipient(recipient)
+                .triggeredBy(triggeredBy)
+                .type(type)
+                .title(title)
+                .message(message)
+                .linkUrl(linkUrl)
+                .build();
+        notificationRepository.save(notification);
+    }
+
     private Notification findNotificationById(Long notificationId) {
         return notificationRepository.findById(notificationId)
                 .filter(n -> n.getDeletedAt() == null)

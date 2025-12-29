@@ -3,6 +3,7 @@ package com.board.service.impl;
 import com.board.dto.task.TaskCreateRequest;
 import com.board.dto.task.TaskResponse;
 import com.board.dto.task.TaskUpdateRequest;
+import com.board.entity.BaseEntity;
 import com.board.entity.Project;
 import com.board.entity.Story;
 import com.board.entity.Task;
@@ -18,12 +19,15 @@ import com.board.repository.ProjectRepository;
 import com.board.repository.StoryRepository;
 import com.board.repository.TaskRepository;
 import com.board.repository.UserRepository;
+import com.board.service.ActivityLogService;
+import com.board.service.NotificationService;
 import com.board.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Implementation of TaskService.
@@ -38,13 +42,16 @@ public class TaskServiceImpl implements TaskService {
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;
     private final TaskMapper taskMapper;
+    private final NotificationService notificationService;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
     public TaskResponse createTask(Long projectId, Long storyId,
             TaskCreateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateRole(project, userId, Role.DEVELOPER);
+        User actor = findUserById(userId);
+        validateRole(project, actor, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
@@ -71,6 +78,7 @@ public class TaskServiceImpl implements TaskService {
         task.setPosition(calculateNextPosition(story));
 
         task = taskRepository.save(task);
+        notifyAssignmentIfChanged(actor, task.getAssignee(), null, task);
         return taskMapper.toResponse(task);
     }
 
@@ -107,13 +115,17 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(Long projectId, Long storyId, Long taskId,
             TaskUpdateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateRole(project, userId, Role.DEVELOPER);
+        User actor = findUserById(userId);
+        validateRole(project, actor, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
 
         Task task = findTaskById(taskId);
         validateTaskBelongsToStory(task, story);
+
+        TaskStatus oldStatus = task.getStatus();
+        User oldAssignee = task.getAssignee();
 
         if (request.getTitle() != null) {
             task.setTitle(request.getTitle());
@@ -139,6 +151,8 @@ public class TaskServiceImpl implements TaskService {
         }
 
         task = taskRepository.save(task);
+        recordTaskActivityChanges(project, actor, task, oldStatus, oldAssignee);
+        notifyAssignmentIfChanged(actor, task.getAssignee(), oldAssignee, task);
         return taskMapper.toResponse(task);
     }
 
@@ -146,7 +160,8 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public void deleteTask(Long projectId, Long storyId, Long taskId, Long userId) {
         Project project = findProjectById(projectId);
-        validateRole(project, userId, Role.DEVELOPER);
+        User actor = findUserById(userId);
+        validateRole(project, actor, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
@@ -162,7 +177,8 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse completeTask(Long projectId, Long storyId, Long taskId, Long userId) {
         Project project = findProjectById(projectId);
-        validateRole(project, userId, Role.DEVELOPER);
+        User actor = findUserById(userId);
+        validateRole(project, actor, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
@@ -174,8 +190,10 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Task is already completed");
         }
 
+        TaskStatus oldStatus = task.getStatus();
         task.setStatus(TaskStatus.DONE);
         task = taskRepository.save(task);
+        recordTaskStatusChange(project, actor, task, oldStatus);
 
         return taskMapper.toResponse(task);
     }
@@ -210,8 +228,7 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
-    private void validateRole(Project project, Long userId, Role... allowedRoles) {
-        User user = findUserById(userId);
+    private void validateRole(Project project, User user, Role... allowedRoles) {
         Role role = projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, user)
                 .map(com.board.entity.ProjectMember::getRole)
                 .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
@@ -262,5 +279,63 @@ public class TaskServiceImpl implements TaskService {
 
         taskRepository.saveAll(reordered);
         task.setPosition(reordered.indexOf(task));
+    }
+
+    private void recordTaskActivityChanges(Project project, User actor, Task task,
+            TaskStatus oldStatus, User oldAssignee) {
+        if (oldStatus != task.getStatus()) {
+            recordTaskStatusChange(project, actor, task, oldStatus);
+        }
+        if (!Objects.equals(idOf(oldAssignee), idOf(task.getAssignee()))) {
+            String details = "from=" + valueOrEmpty(nameOrNull(oldAssignee))
+                    + ",to=" + valueOrEmpty(nameOrNull(task.getAssignee()));
+            activityLogService.recordActivity(project, actor, "TASK",
+                    task.getId(), "ASSIGNEE_CHANGED", details);
+        }
+    }
+
+    private void recordTaskStatusChange(Project project, User actor, Task task, TaskStatus oldStatus) {
+        String details = "from=" + oldStatus + ",to=" + task.getStatus();
+        activityLogService.recordActivity(project, actor, "TASK",
+                task.getId(), "STATUS_CHANGED", details);
+    }
+
+    private void notifyAssignmentIfChanged(User actor, User assignee,
+            User previousAssignee, Task task) {
+        if (assignee == null || Objects.equals(idOf(assignee), idOf(previousAssignee))) {
+            return;
+        }
+        if (actor != null && Objects.equals(idOf(actor), idOf(assignee))) {
+            return;
+        }
+        notificationService.createNotification(
+                assignee,
+                actor,
+                "ASSIGNMENT",
+                "Assigned to Task " + task.getKey(),
+                resolveDisplayName(actor) + " assigned you to task " + task.getKey() + ".",
+                null);
+    }
+
+    private Long idOf(BaseEntity entity) {
+        return entity == null ? null : entity.getId();
+    }
+
+    private String nameOrNull(User user) {
+        return user == null ? null : resolveDisplayName(user);
+    }
+
+    private String resolveDisplayName(User user) {
+        if (user == null) {
+            return "";
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return user.getEmail();
+    }
+
+    private String valueOrEmpty(Object value) {
+        return value == null ? "" : value.toString();
     }
 }

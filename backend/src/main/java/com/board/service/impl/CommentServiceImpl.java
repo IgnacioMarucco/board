@@ -19,11 +19,16 @@ import com.board.repository.StoryRepository;
 import com.board.repository.TaskRepository;
 import com.board.repository.UserRepository;
 import com.board.service.CommentService;
+import com.board.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Implementation of CommentService.
@@ -32,6 +37,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CommentServiceImpl implements CommentService {
 
+    private static final Pattern MENTION_PATTERN = Pattern.compile("(?i)@([a-z0-9._-]{3,30})");
+
     private final CommentRepository commentRepository;
     private final EpicRepository epicRepository;
     private final StoryRepository storyRepository;
@@ -39,6 +46,7 @@ public class CommentServiceImpl implements CommentService {
     private final UserRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final CommentMapper commentMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -51,6 +59,7 @@ public class CommentServiceImpl implements CommentService {
         comment.setEpic(epic);
 
         comment = commentRepository.save(comment);
+        notifyMentions(comment, epic.getProject(), author);
         return commentMapper.toResponse(comment);
     }
 
@@ -65,6 +74,7 @@ public class CommentServiceImpl implements CommentService {
         comment.setStory(story);
 
         comment = commentRepository.save(comment);
+        notifyMentions(comment, story.getEpic().getProject(), author);
         return commentMapper.toResponse(comment);
     }
 
@@ -79,6 +89,7 @@ public class CommentServiceImpl implements CommentService {
         comment.setTask(task);
 
         comment = commentRepository.save(comment);
+        notifyMentions(comment, task.getStory().getEpic().getProject(), author);
         return commentMapper.toResponse(comment);
     }
 
@@ -208,5 +219,56 @@ public class CommentServiceImpl implements CommentService {
         if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
         }
+    }
+
+    private void notifyMentions(Comment comment, Project project, User author) {
+        Set<String> usernames = extractMentions(comment.getContent());
+        if (usernames.isEmpty()) {
+            return;
+        }
+        String authorUsername = author.getUsername();
+        if (authorUsername != null) {
+            usernames.remove(authorUsername.toLowerCase(Locale.ROOT));
+        }
+        if (usernames.isEmpty()) {
+            return;
+        }
+
+        List<User> mentionedUsers = userRepository.findByUsernameIn(usernames);
+        for (User mentioned : mentionedUsers) {
+            if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, mentioned)) {
+                continue;
+            }
+            String authorLabel = resolveDisplayName(author);
+            notificationService.createNotification(
+                    mentioned,
+                    author,
+                    "MENTION",
+                    "Mentioned in a comment",
+                    authorLabel + " mentioned you in a comment.",
+                    null);
+        }
+    }
+
+    private Set<String> extractMentions(String content) {
+        if (content == null || content.isBlank()) {
+            return Set.of();
+        }
+        Matcher matcher = MENTION_PATTERN.matcher(content);
+        java.util.Set<String> usernames = new java.util.HashSet<>();
+        while (matcher.find()) {
+            String username = matcher.group(1);
+            if (username != null) {
+                usernames.add(username.toLowerCase(Locale.ROOT));
+            }
+        }
+        return usernames;
+    }
+
+    private String resolveDisplayName(User user) {
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return user.getEmail();
     }
 }
