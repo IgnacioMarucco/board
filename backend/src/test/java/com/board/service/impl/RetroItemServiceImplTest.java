@@ -15,6 +15,7 @@ import com.board.mapper.RetroItemMapper;
 import com.board.repository.CeremonyRepository;
 import com.board.repository.ProjectMemberRepository;
 import com.board.repository.RetroItemRepository;
+import com.board.repository.RetroItemVoteRepository;
 import com.board.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +43,8 @@ class RetroItemServiceImplTest {
 
     @Mock
     private RetroItemRepository retroItemRepository;
+    @Mock
+    private RetroItemVoteRepository retroItemVoteRepository;
     @Mock
     private CeremonyRepository ceremonyRepository;
     @Mock
@@ -192,6 +195,8 @@ class RetroItemServiceImplTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
                     .thenReturn(true);
+            when(retroItemVoteRepository.findByRetroItemAndVoter(testRetroItem, testUser))
+                    .thenReturn(Optional.empty());
             when(retroItemRepository.save(testRetroItem)).thenReturn(testRetroItem);
             when(retroItemMapper.toResponse(testRetroItem)).thenReturn(testResponse);
 

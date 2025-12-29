@@ -9,13 +9,14 @@ import com.board.entity.Sprint;
 import com.board.entity.User;
 import com.board.entity.enums.SprintStatus;
 import com.board.exception.BadRequestException;
-import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.SprintMapper;
 import com.board.repository.ProjectMemberRepository;
 import com.board.repository.ProjectRepository;
 import com.board.repository.SprintRepository;
+import com.board.repository.StoryRepository;
 import com.board.repository.UserRepository;
+import com.board.repository.CeremonyRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -26,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,6 +53,12 @@ class SprintServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private StoryRepository storyRepository;
+
+    @Mock
+    private CeremonyRepository ceremonyRepository;
 
     @Mock
     private SprintMapper sprintMapper;
@@ -258,6 +266,7 @@ class SprintServiceImplTest {
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(sprintRepository.findByProjectAndStatus(testProject, SprintStatus.ACTIVE))
                     .thenReturn(Optional.empty());
+            when(storyRepository.findBySprint(testSprint)).thenReturn(List.of());
             when(sprintRepository.save(any(Sprint.class))).thenReturn(testSprint);
             when(sprintMapper.toResponse(any(Sprint.class))).thenReturn(testSprintResponse);
 
@@ -310,6 +319,7 @@ class SprintServiceImplTest {
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(sprintRepository.save(any(Sprint.class))).thenReturn(testSprint);
             when(sprintMapper.toResponse(any(Sprint.class))).thenReturn(testSprintResponse);
+            when(storyRepository.findBySprint(testSprint)).thenReturn(List.of());
 
             // When
             SprintResponse response = sprintService.completeSprint(1L, 1L, 1L);
