@@ -69,6 +69,7 @@ class TaskServiceImplTest {
     private Story testStory;
     private Task testTask;
     private TaskResponse testTaskResponse;
+    private com.board.entity.ProjectMember devMember;
 
     @BeforeEach
     void setUp() {
@@ -114,6 +115,13 @@ class TaskServiceImplTest {
                 .title("Task Title")
                 .status(TaskStatus.TODO)
                 .build();
+
+        devMember = com.board.entity.ProjectMember.builder()
+                .id(10L)
+                .user(testUser)
+                .project(testProject)
+                .role(com.board.entity.enums.Role.DEVELOPER)
+                .build();
     }
 
     @Nested
@@ -132,9 +140,11 @@ class TaskServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(devMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findByKey("task-1")).thenReturn(Optional.empty());
+            when(taskRepository.findByStoryOrderByPositionAsc(testStory)).thenReturn(List.of());
             when(taskRepository.save(any(Task.class))).thenReturn(testTask);
             when(taskMapper.toResponse(any(Task.class))).thenReturn(testTaskResponse);
 
@@ -157,7 +167,8 @@ class TaskServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(devMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findByKey("TASK-1")).thenReturn(Optional.of(testTask));
 
@@ -178,7 +189,8 @@ class TaskServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
             when(taskMapper.toResponse(testTask)).thenReturn(testTaskResponse);
@@ -196,7 +208,8 @@ class TaskServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -222,7 +235,8 @@ class TaskServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(devMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
             when(taskRepository.save(any(Task.class))).thenReturn(testTask);
@@ -246,6 +260,9 @@ class TaskServiceImplTest {
         void shouldSoftDeleteTaskSuccessfully() {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(devMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
 
@@ -268,7 +285,8 @@ class TaskServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(devMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
             when(taskRepository.save(any(Task.class))).thenReturn(testTask);
@@ -291,7 +309,8 @@ class TaskServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(devMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
 

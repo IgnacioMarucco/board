@@ -7,6 +7,7 @@ import com.board.entity.Project;
 import com.board.entity.Story;
 import com.board.entity.Task;
 import com.board.entity.User;
+import com.board.entity.enums.Role;
 import com.board.entity.enums.TaskStatus;
 import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
@@ -43,7 +44,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse createTask(Long projectId, Long storyId,
             TaskCreateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
@@ -66,6 +67,8 @@ public class TaskServiceImpl implements TaskService {
             validateMembership(project, assignee.getId());
             task.setAssignee(assignee);
         }
+
+        task.setPosition(calculateNextPosition(story));
 
         task = taskRepository.save(task);
         return taskMapper.toResponse(task);
@@ -104,7 +107,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(Long projectId, Long storyId, Long taskId,
             TaskUpdateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
@@ -131,6 +134,10 @@ public class TaskServiceImpl implements TaskService {
             task.setAssignee(assignee);
         }
 
+        if (request.getPosition() != null) {
+            reorderTasks(story, task, request.getPosition());
+        }
+
         task = taskRepository.save(task);
         return taskMapper.toResponse(task);
     }
@@ -139,7 +146,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public void deleteTask(Long projectId, Long storyId, Long taskId, Long userId) {
         Project project = findProjectById(projectId);
-        validateOwnership(project, userId);
+        validateRole(project, userId, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
@@ -155,7 +162,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse completeTask(Long projectId, Long storyId, Long taskId, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.DEVELOPER);
 
         Story story = findStoryById(storyId);
         validateStoryBelongsToProject(story, project);
@@ -198,15 +205,23 @@ public class TaskServiceImpl implements TaskService {
 
     private void validateMembership(Project project, Long userId) {
         User user = findUserById(userId);
-        if (!projectMemberRepository.existsByProjectAndUser(project, user)) {
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
         }
     }
 
-    private void validateOwnership(Project project, Long userId) {
-        if (!project.getOwner().getId().equals(userId)) {
-            throw new ForbiddenException("Only the project owner can perform this action");
+    private void validateRole(Project project, Long userId, Role... allowedRoles) {
+        User user = findUserById(userId);
+        Role role = projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, user)
+                .map(com.board.entity.ProjectMember::getRole)
+                .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
+
+        for (Role allowed : allowedRoles) {
+            if (allowed == role) {
+                return;
+            }
         }
+        throw new ForbiddenException("You are not allowed to perform this action");
     }
 
     private void validateStoryBelongsToProject(Story story, Project project) {
@@ -220,5 +235,32 @@ public class TaskServiceImpl implements TaskService {
         if (!task.getStory().getId().equals(story.getId())) {
             throw new NotFoundException("Task not found in this story");
         }
+    }
+
+    private int calculateNextPosition(Story story) {
+        return (int) taskRepository.findByStoryOrderByPositionAsc(story).stream()
+                .filter(Task::isActive)
+                .count();
+    }
+
+    private void reorderTasks(Story story, Task task, Integer position) {
+        List<Task> tasks = taskRepository.findByStoryOrderByPositionAsc(story).stream()
+                .filter(Task::isActive)
+                .filter(existing -> !existing.getId().equals(task.getId()))
+                .toList();
+
+        List<Task> reordered = new java.util.ArrayList<>(tasks);
+        if (position < 0 || position > reordered.size()) {
+            reordered.add(task);
+        } else {
+            reordered.add(position, task);
+        }
+
+        for (int i = 0; i < reordered.size(); i++) {
+            reordered.get(i).setPosition(i);
+        }
+
+        taskRepository.saveAll(reordered);
+        task.setPosition(reordered.indexOf(task));
     }
 }

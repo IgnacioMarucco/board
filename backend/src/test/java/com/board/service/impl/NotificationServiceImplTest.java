@@ -4,7 +4,6 @@ import com.board.dto.notification.NotificationResponse;
 import com.board.entity.Notification;
 import com.board.entity.User;
 import com.board.exception.ForbiddenException;
-import com.board.exception.NotFoundException;
 import com.board.mapper.NotificationMapper;
 import com.board.repository.NotificationRepository;
 import com.board.repository.UserRepository;

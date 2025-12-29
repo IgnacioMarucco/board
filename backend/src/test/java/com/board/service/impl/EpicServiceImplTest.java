@@ -60,6 +60,7 @@ class EpicServiceImplTest {
     private Project testProject;
     private Epic testEpic;
     private EpicResponse testEpicResponse;
+    private com.board.entity.ProjectMember ownerMember;
 
     @BeforeEach
     void setUp() {
@@ -73,6 +74,13 @@ class EpicServiceImplTest {
                 .key("TEST")
                 .name("Test Project")
                 .owner(testUser)
+                .build();
+
+        ownerMember = com.board.entity.ProjectMember.builder()
+                .id(10L)
+                .project(testProject)
+                .user(testUser)
+                .role(com.board.entity.enums.Role.PRODUCT_OWNER)
                 .build();
 
         testEpic = Epic.builder()
@@ -108,7 +116,8 @@ class EpicServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(epicRepository.findByKey("epic-1")).thenReturn(Optional.empty());
             when(epicRepository.save(any(Epic.class))).thenReturn(testEpic);
             when(epicMapper.toResponse(any(Epic.class))).thenReturn(testEpicResponse);
@@ -132,7 +141,8 @@ class EpicServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(epicRepository.findByKey("EPIC-1")).thenReturn(Optional.of(testEpic));
 
             // When/Then
@@ -152,7 +162,8 @@ class EpicServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(epicRepository.findById(1L)).thenReturn(Optional.of(testEpic));
             when(epicMapper.toResponse(testEpic)).thenReturn(testEpicResponse);
 
@@ -169,7 +180,8 @@ class EpicServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(epicRepository.findById(999L)).thenReturn(Optional.empty());
 
             // When/Then
@@ -194,7 +206,8 @@ class EpicServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(epicRepository.findById(1L)).thenReturn(Optional.of(testEpic));
             when(epicRepository.save(any(Epic.class))).thenReturn(testEpic);
             when(epicMapper.toResponse(any(Epic.class))).thenReturn(testEpicResponse);
@@ -217,6 +230,9 @@ class EpicServiceImplTest {
         void shouldSoftDeleteEpicSuccessfully() {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(epicRepository.findById(1L)).thenReturn(Optional.of(testEpic));
 
             // When
@@ -238,7 +254,8 @@ class EpicServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(epicRepository.findByProject(testProject)).thenReturn(List.of(testEpic));
             when(epicMapper.toResponseList(any())).thenReturn(List.of(testEpicResponse));
 

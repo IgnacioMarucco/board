@@ -26,7 +26,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,6 +62,7 @@ class SprintServiceImplTest {
     private Project testProject;
     private Sprint testSprint;
     private SprintResponse testSprintResponse;
+    private ProjectMember scrumMasterMember;
 
     @BeforeEach
     void setUp() {
@@ -93,6 +93,13 @@ class SprintServiceImplTest {
                 .name("Sprint 1")
                 .status(SprintStatus.PLANNING)
                 .build();
+
+        scrumMasterMember = ProjectMember.builder()
+                .id(10L)
+                .user(testUser)
+                .project(testProject)
+                .role(com.board.entity.enums.Role.SCRUM_MASTER)
+                .build();
     }
 
     @Nested
@@ -112,7 +119,8 @@ class SprintServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.save(any(Sprint.class))).thenReturn(testSprint);
             when(sprintMapper.toResponse(any(Sprint.class))).thenReturn(testSprintResponse);
 
@@ -136,7 +144,8 @@ class SprintServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
 
             // When/Then
             assertThatThrownBy(() -> sprintService.createSprint(1L, request, 1L))
@@ -155,7 +164,8 @@ class SprintServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(sprintMapper.toResponse(testSprint)).thenReturn(testSprintResponse);
 
@@ -172,7 +182,8 @@ class SprintServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(sprintRepository.findById(999L)).thenReturn(Optional.empty());
 
             // When/Then
@@ -196,7 +207,8 @@ class SprintServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(sprintRepository.save(any(Sprint.class))).thenReturn(testSprint);
             when(sprintMapper.toResponse(any(Sprint.class))).thenReturn(testSprintResponse);
@@ -220,7 +232,8 @@ class SprintServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
 
             // When/Then
@@ -240,7 +253,8 @@ class SprintServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(sprintRepository.findByProjectAndStatus(testProject, SprintStatus.ACTIVE))
                     .thenReturn(Optional.empty());
@@ -266,7 +280,8 @@ class SprintServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(sprintRepository.findByProjectAndStatus(testProject, SprintStatus.ACTIVE))
                     .thenReturn(Optional.of(activeSprint));
@@ -290,7 +305,8 @@ class SprintServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(sprintRepository.save(any(Sprint.class))).thenReturn(testSprint);
             when(sprintMapper.toResponse(any(Sprint.class))).thenReturn(testSprintResponse);
@@ -309,7 +325,8 @@ class SprintServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
 
             // When/Then
@@ -328,6 +345,9 @@ class SprintServiceImplTest {
         void shouldSoftDeleteSprintSuccessfully() {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
 
             // When
@@ -345,6 +365,9 @@ class SprintServiceImplTest {
             testSprint.setStatus(SprintStatus.ACTIVE);
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
 
             // When/Then

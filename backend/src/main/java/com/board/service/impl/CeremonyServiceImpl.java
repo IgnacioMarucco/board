@@ -7,6 +7,7 @@ import com.board.entity.Ceremony;
 import com.board.entity.Project;
 import com.board.entity.Sprint;
 import com.board.entity.User;
+import com.board.entity.enums.Role;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.CeremonyMapper;
@@ -41,7 +42,7 @@ public class CeremonyServiceImpl implements CeremonyService {
     public CeremonyResponse createCeremony(Long sprintId,
             CeremonyCreateRequest request, Long userId) {
         Sprint sprint = findSprintById(sprintId);
-        validateMembership(sprint.getProject(), userId);
+        validateRole(sprint.getProject(), userId, Role.SCRUM_MASTER);
 
         Set<User> participants = new HashSet<>();
         if (request.getParticipantIds() != null && !request.getParticipantIds().isEmpty()) {
@@ -84,7 +85,7 @@ public class CeremonyServiceImpl implements CeremonyService {
     public CeremonyResponse updateCeremony(Long ceremonyId,
             CeremonyUpdateRequest request, Long userId) {
         Ceremony ceremony = findCeremonyById(ceremonyId);
-        validateMembership(ceremony.getSprint().getProject(), userId);
+        validateRole(ceremony.getSprint().getProject(), userId, Role.SCRUM_MASTER);
 
         if (request.getScheduledAt() != null) {
             ceremony.setScheduledAt(request.getScheduledAt());
@@ -111,7 +112,7 @@ public class CeremonyServiceImpl implements CeremonyService {
     @Transactional
     public void deleteCeremony(Long ceremonyId, Long userId) {
         Ceremony ceremony = findCeremonyById(ceremonyId);
-        validateMembership(ceremony.getSprint().getProject(), userId);
+        validateRole(ceremony.getSprint().getProject(), userId, Role.SCRUM_MASTER);
 
         ceremony.softDelete();
         ceremonyRepository.save(ceremony);
@@ -144,9 +145,25 @@ public class CeremonyServiceImpl implements CeremonyService {
 
     private void validateMembership(Project project, Long userId) {
         User user = findUserById(userId);
-        if (!project.getOwner().getId().equals(userId)
-                && !projectMemberRepository.existsByProjectAndUser(project, user)) {
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
         }
+    }
+
+    private Role getRoleForProject(Project project, Long userId) {
+        User user = findUserById(userId);
+        return projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, user)
+                .map(com.board.entity.ProjectMember::getRole)
+                .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
+    }
+
+    private void validateRole(Project project, Long userId, Role... allowedRoles) {
+        Role role = getRoleForProject(project, userId);
+        for (Role allowed : allowedRoles) {
+            if (allowed == role) {
+                return;
+            }
+        }
+        throw new ForbiddenException("You are not allowed to perform this action");
     }
 }

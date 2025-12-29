@@ -19,6 +19,8 @@ public interface StoryMapper {
     @Mapping(source = "sprint.name", target = "sprintName")
     @Mapping(source = "assignee.id", target = "assigneeId")
     @Mapping(source = "assignee.email", target = "assigneeEmail")
+    @Mapping(source = "boardColumn.id", target = "boardColumnId")
+    @Mapping(source = "boardColumn.name", target = "boardColumnName")
     StoryResponse toResponse(Story story);
 
     List<StoryResponse> toResponseList(List<Story> stories);

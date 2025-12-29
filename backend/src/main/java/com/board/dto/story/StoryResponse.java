@@ -37,6 +37,9 @@ public class StoryResponse {
     private Long assigneeId;
     private String assigneeEmail;
 
+    private Long boardColumnId;
+    private String boardColumnName;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

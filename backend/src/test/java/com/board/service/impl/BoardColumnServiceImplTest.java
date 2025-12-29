@@ -6,6 +6,7 @@ import com.board.dto.boardcolumn.BoardColumnUpdateRequest;
 import com.board.entity.BoardColumn;
 import com.board.entity.Project;
 import com.board.entity.User;
+import com.board.exception.BadRequestException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.BoardColumnMapper;
 import com.board.repository.BoardColumnRepository;
@@ -58,6 +59,7 @@ class BoardColumnServiceImplTest {
     private Project testProject;
     private BoardColumn testColumn;
     private BoardColumnResponse testColumnResponse;
+    private com.board.entity.ProjectMember scrumMasterMember;
 
     @BeforeEach
     void setUp() {
@@ -87,6 +89,13 @@ class BoardColumnServiceImplTest {
                 .position(0)
                 .wipLimit(5)
                 .build();
+
+        scrumMasterMember = com.board.entity.ProjectMember.builder()
+                .id(10L)
+                .project(testProject)
+                .user(testUser)
+                .role(com.board.entity.enums.Role.SCRUM_MASTER)
+                .build();
     }
 
     @Nested
@@ -94,27 +103,17 @@ class BoardColumnServiceImplTest {
     class CreateColumn {
 
         @Test
-        @DisplayName("should create column successfully")
-        void shouldCreateColumnSuccessfully() {
-            // Given
+        @DisplayName("should reject column creation in v1.0")
+        void shouldRejectColumnCreation() {
             BoardColumnCreateRequest request = BoardColumnCreateRequest.builder()
                     .name("To Do")
                     .position(0)
                     .wipLimit(5)
                     .build();
 
-            when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
-            when(boardColumnRepository.save(any(BoardColumn.class))).thenReturn(testColumn);
-            when(boardColumnMapper.toResponse(any(BoardColumn.class))).thenReturn(testColumnResponse);
-
-            // When
-            BoardColumnResponse response = boardColumnService.createColumn(1L, request, 1L);
-
-            // Then
-            assertThat(response).isNotNull();
-            verify(boardColumnRepository).save(any(BoardColumn.class));
+            assertThatThrownBy(() -> boardColumnService.createColumn(1L, request, 1L))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessage("Board columns are fixed by template in v1.0");
         }
     }
 
@@ -128,7 +127,8 @@ class BoardColumnServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(boardColumnRepository.findById(1L)).thenReturn(Optional.of(testColumn));
             when(boardColumnMapper.toResponse(testColumn)).thenReturn(testColumnResponse);
 
@@ -145,7 +145,8 @@ class BoardColumnServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(boardColumnRepository.findById(999L)).thenReturn(Optional.empty());
 
             // When/Then
@@ -165,7 +166,8 @@ class BoardColumnServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(boardColumnRepository.findByProjectOrderByPositionAsc(testProject))
                     .thenReturn(List.of(testColumn));
             when(boardColumnMapper.toResponseList(any())).thenReturn(List.of(testColumnResponse));
@@ -183,17 +185,17 @@ class BoardColumnServiceImplTest {
     class UpdateColumn {
 
         @Test
-        @DisplayName("should update column successfully")
-        void shouldUpdateColumnSuccessfully() {
+        @DisplayName("should update WIP limit successfully")
+        void shouldUpdateWipLimitSuccessfully() {
             // Given
             BoardColumnUpdateRequest request = BoardColumnUpdateRequest.builder()
-                    .name("In Progress")
-                    .position(1)
+                    .wipLimit(10)
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(boardColumnRepository.findById(1L)).thenReturn(Optional.of(testColumn));
             when(boardColumnRepository.save(any(BoardColumn.class))).thenReturn(testColumn);
             when(boardColumnMapper.toResponse(any(BoardColumn.class))).thenReturn(testColumnResponse);
@@ -205,6 +207,25 @@ class BoardColumnServiceImplTest {
             assertThat(response).isNotNull();
             verify(boardColumnRepository).save(testColumn);
         }
+
+        @Test
+        @DisplayName("should reject name or position changes")
+        void shouldRejectNameOrPositionChanges() {
+            BoardColumnUpdateRequest request = BoardColumnUpdateRequest.builder()
+                    .name("In Progress")
+                    .position(1)
+                    .build();
+
+            when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
+            when(boardColumnRepository.findById(1L)).thenReturn(Optional.of(testColumn));
+
+            assertThatThrownBy(() -> boardColumnService.updateColumn(1L, 1L, request, 1L))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessage("Board columns are fixed by template in v1.0");
+        }
     }
 
     @Nested
@@ -212,18 +233,11 @@ class BoardColumnServiceImplTest {
     class DeleteColumn {
 
         @Test
-        @DisplayName("should soft delete column successfully")
-        void shouldSoftDeleteColumnSuccessfully() {
-            // Given
-            when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
-            when(boardColumnRepository.findById(1L)).thenReturn(Optional.of(testColumn));
-
-            // When
-            boardColumnService.deleteColumn(1L, 1L, 1L);
-
-            // Then
-            verify(boardColumnRepository).save(testColumn);
-            assertThat(testColumn.getDeletedAt()).isNotNull();
+        @DisplayName("should reject column deletion in v1.0")
+        void shouldRejectColumnDeletion() {
+            assertThatThrownBy(() -> boardColumnService.deleteColumn(1L, 1L, 1L))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessage("Board columns are fixed by template in v1.0");
         }
     }
 }

@@ -3,6 +3,7 @@ package com.board.controller;
 import com.board.dto.boardcolumn.BoardColumnCreateRequest;
 import com.board.dto.boardcolumn.BoardColumnResponse;
 import com.board.dto.boardcolumn.BoardColumnUpdateRequest;
+import com.board.exception.BadRequestException;
 import com.board.security.WithMockCustomUser;
 import com.board.service.BoardColumnService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,7 +21,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -67,8 +68,8 @@ class BoardColumnControllerTest {
     }
 
     @Test
-    @DisplayName("POST /projects/{projectId}/columns should return 201 Created")
-    void createColumnShouldReturnCreated() throws Exception {
+    @DisplayName("POST /projects/{projectId}/columns should return 400")
+    void createColumnShouldReturnBadRequest() throws Exception {
         // Given
         BoardColumnCreateRequest request = BoardColumnCreateRequest.builder()
                 .name("To Do")
@@ -77,15 +78,13 @@ class BoardColumnControllerTest {
                 .build();
 
         when(boardColumnService.createColumn(eq(1L), any(BoardColumnCreateRequest.class), any()))
-                .thenReturn(columnResponse);
+                .thenThrow(new BadRequestException("Board columns are fixed by template in v1.0"));
 
         // When/Then
         mockMvc.perform(post("/api/v1/projects/1/columns")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("To Do"))
-                .andExpect(jsonPath("$.position").value(0));
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -119,7 +118,7 @@ class BoardColumnControllerTest {
     void updateColumnShouldReturnOk() throws Exception {
         // Given
         BoardColumnUpdateRequest request = BoardColumnUpdateRequest.builder()
-                .name("In Progress")
+                .wipLimit(10)
                 .build();
 
         when(boardColumnService.updateColumn(eq(1L), eq(1L),
@@ -134,13 +133,15 @@ class BoardColumnControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /projects/{projectId}/columns/{columnId} should return 204 No Content")
-    void deleteColumnShouldReturnNoContent() throws Exception {
+    @DisplayName("DELETE /projects/{projectId}/columns/{columnId} should return 400")
+    void deleteColumnShouldReturnBadRequest() throws Exception {
         // Given
-        doNothing().when(boardColumnService).deleteColumn(eq(1L), eq(1L), any());
+        doThrow(new BadRequestException("Board columns are fixed by template in v1.0"))
+                .when(boardColumnService)
+                .deleteColumn(eq(1L), eq(1L), any());
 
         // When/Then
         mockMvc.perform(delete("/api/v1/projects/1/columns/1"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isBadRequest());
     }
 }

@@ -27,7 +27,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,7 +136,7 @@ class CommentServiceImplTest {
 
             when(epicRepository.findById(1L)).thenReturn(Optional.of(testEpic));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser))
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
                     .thenReturn(true);
             when(commentRepository.save(any(Comment.class))).thenReturn(testComment);
             when(commentMapper.toResponse(any(Comment.class))).thenReturn(testCommentResponse);
@@ -165,7 +164,7 @@ class CommentServiceImplTest {
 
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser))
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
                     .thenReturn(true);
             when(commentRepository.save(any(Comment.class))).thenReturn(testComment);
             when(commentMapper.toResponse(any(Comment.class))).thenReturn(testCommentResponse);
@@ -193,7 +192,7 @@ class CommentServiceImplTest {
 
             when(taskRepository.findById(1L)).thenReturn(Optional.of(testTask));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser))
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
                     .thenReturn(true);
             when(commentRepository.save(any(Comment.class))).thenReturn(testComment);
             when(commentMapper.toResponse(any(Comment.class))).thenReturn(testCommentResponse);
@@ -217,7 +216,7 @@ class CommentServiceImplTest {
             // Given
             when(commentRepository.findById(1L)).thenReturn(Optional.of(testComment));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser))
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
                     .thenReturn(true);
             when(commentMapper.toResponse(testComment)).thenReturn(testCommentResponse);
 
@@ -269,7 +268,6 @@ class CommentServiceImplTest {
         @DisplayName("should throw ForbiddenException when not author")
         void shouldThrowWhenNotAuthor() {
             // Given
-            User otherUser = User.builder().id(2L).build();
             CommentUpdateRequest request = CommentUpdateRequest.builder()
                     .content("Updated content")
                     .build();

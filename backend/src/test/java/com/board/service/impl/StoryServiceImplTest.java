@@ -9,11 +9,15 @@ import com.board.entity.Project;
 import com.board.entity.Sprint;
 import com.board.entity.Story;
 import com.board.entity.User;
+import com.board.entity.BoardColumn;
+import com.board.entity.ProjectMember;
+import com.board.entity.enums.Role;
 import com.board.entity.enums.Priority;
 import com.board.entity.enums.StoryStatus;
 import com.board.exception.BadRequestException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.StoryMapper;
+import com.board.repository.BoardColumnRepository;
 import com.board.repository.EpicRepository;
 import com.board.repository.ProjectMemberRepository;
 import com.board.repository.ProjectRepository;
@@ -57,6 +61,9 @@ class StoryServiceImplTest {
     private SprintRepository sprintRepository;
 
     @Mock
+    private BoardColumnRepository boardColumnRepository;
+
+    @Mock
     private ProjectMemberRepository projectMemberRepository;
 
     @Mock
@@ -74,6 +81,8 @@ class StoryServiceImplTest {
     private Sprint testSprint;
     private Story testStory;
     private StoryResponse testStoryResponse;
+    private ProjectMember ownerMember;
+    private BoardColumn defaultColumn;
 
     @BeforeEach
     void setUp() {
@@ -102,6 +111,13 @@ class StoryServiceImplTest {
                 .project(testProject)
                 .build();
 
+        defaultColumn = BoardColumn.builder()
+                .id(1L)
+                .name("Todo")
+                .position(0)
+                .project(testProject)
+                .build();
+
         testStory = Story.builder()
                 .id(1L)
                 .key("STORY-1")
@@ -117,6 +133,13 @@ class StoryServiceImplTest {
                 .key("STORY-1")
                 .title("Story Title")
                 .status(StoryStatus.BACKLOG)
+                .build();
+
+        ownerMember = ProjectMember.builder()
+                .id(10L)
+                .user(testUser)
+                .project(testProject)
+                .role(Role.PRODUCT_OWNER)
                 .build();
     }
 
@@ -137,9 +160,12 @@ class StoryServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(storyRepository.findByKey("story-1")).thenReturn(Optional.empty());
             when(epicRepository.findById(1L)).thenReturn(Optional.of(testEpic));
+            when(storyRepository.findByEpicProjectAndSprintIsNullOrderByPositionAsc(testProject))
+                    .thenReturn(List.of());
             when(storyRepository.save(any(Story.class))).thenReturn(testStory);
             when(storyMapper.toResponse(any(Story.class))).thenReturn(testStoryResponse);
 
@@ -162,13 +188,34 @@ class StoryServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(storyRepository.findByKey("STORY-1")).thenReturn(Optional.of(testStory));
 
             // When/Then
             assertThatThrownBy(() -> storyService.createStory(1L, request, 1L))
                     .isInstanceOf(BadRequestException.class)
                     .hasMessage("Story key already exists");
+        }
+
+        @Test
+        @DisplayName("should reject non-Fibonacci story points")
+        void shouldRejectNonFibonacciStoryPoints() {
+            StoryCreateRequest request = StoryCreateRequest.builder()
+                    .key("story-2")
+                    .title("Story Title")
+                    .storyPoints(7)
+                    .build();
+
+            when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
+            when(storyRepository.findByKey("story-2")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> storyService.createStory(1L, request, 1L))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessage("Story points must follow the Fibonacci scale");
         }
     }
 
@@ -182,7 +229,8 @@ class StoryServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(storyMapper.toResponse(testStory)).thenReturn(testStoryResponse);
 
@@ -199,7 +247,8 @@ class StoryServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(storyRepository.findById(999L)).thenReturn(Optional.empty());
 
             // When/Then
@@ -224,7 +273,8 @@ class StoryServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(storyRepository.save(any(Story.class))).thenReturn(testStory);
             when(storyMapper.toResponse(any(Story.class))).thenReturn(testStoryResponse);
@@ -235,6 +285,24 @@ class StoryServiceImplTest {
             // Then
             assertThat(response).isNotNull();
             verify(storyRepository).save(testStory);
+        }
+
+        @Test
+        @DisplayName("should reject non-Fibonacci story points")
+        void shouldRejectNonFibonacciStoryPoints() {
+            StoryUpdateRequest request = StoryUpdateRequest.builder()
+                    .storyPoints(7)
+                    .build();
+
+            when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
+            when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
+
+            assertThatThrownBy(() -> storyService.updateStory(1L, 1L, request, 1L))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessage("Story points must follow the Fibonacci scale");
         }
     }
 
@@ -247,6 +315,9 @@ class StoryServiceImplTest {
         void shouldSoftDeleteStorySuccessfully() {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
 
             // When
@@ -278,8 +349,10 @@ class StoryServiceImplTest {
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(userRepository.findById(2L)).thenReturn(Optional.of(assignee));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
-            when(projectMemberRepository.existsByProjectAndUser(testProject, assignee)).thenReturn(true);
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(ownerMember));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, assignee))
+                    .thenReturn(true);
             when(storyRepository.findById(1L)).thenReturn(Optional.of(testStory));
             when(storyRepository.save(any(Story.class))).thenReturn(testStory);
             when(storyMapper.toResponse(any(Story.class))).thenReturn(testStoryResponse);

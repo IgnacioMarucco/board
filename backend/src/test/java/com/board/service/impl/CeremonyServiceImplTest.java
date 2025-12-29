@@ -59,6 +59,7 @@ class CeremonyServiceImplTest {
     private Sprint testSprint;
     private Ceremony testCeremony;
     private CeremonyResponse testResponse;
+    private com.board.entity.ProjectMember scrumMasterMember;
 
     @BeforeEach
     void setUp() {
@@ -71,6 +72,12 @@ class CeremonyServiceImplTest {
                 .sprint(testSprint)
                 .build();
         testResponse = CeremonyResponse.builder().id(1L).build();
+        scrumMasterMember = com.board.entity.ProjectMember.builder()
+                .id(10L)
+                .user(testUser)
+                .project(testProject)
+                .role(com.board.entity.enums.Role.SCRUM_MASTER)
+                .build();
     }
 
     @Nested
@@ -88,6 +95,8 @@ class CeremonyServiceImplTest {
 
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(ceremonyRepository.save(any(Ceremony.class))).thenReturn(testCeremony);
             when(ceremonyMapper.toResponse(any())).thenReturn(testResponse);
 
@@ -110,6 +119,8 @@ class CeremonyServiceImplTest {
             // Given
             when(ceremonyRepository.findById(1L)).thenReturn(Optional.of(testCeremony));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(ceremonyMapper.toResponse(testCeremony)).thenReturn(testResponse);
 
             // When
@@ -130,6 +141,8 @@ class CeremonyServiceImplTest {
             // Given
             when(sprintRepository.findById(1L)).thenReturn(Optional.of(testSprint));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(ceremonyRepository.findBySprintOrderByScheduledAtAsc(testSprint))
                     .thenReturn(List.of(testCeremony));
             when(ceremonyMapper.toResponseList(any())).thenReturn(List.of(testResponse));
@@ -156,6 +169,8 @@ class CeremonyServiceImplTest {
 
             when(ceremonyRepository.findById(1L)).thenReturn(Optional.of(testCeremony));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
             when(ceremonyRepository.save(testCeremony)).thenReturn(testCeremony);
             when(ceremonyMapper.toResponse(testCeremony)).thenReturn(testResponse);
 
@@ -178,6 +193,8 @@ class CeremonyServiceImplTest {
             // Given
             when(ceremonyRepository.findById(1L)).thenReturn(Optional.of(testCeremony));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(scrumMasterMember));
 
             // When
             ceremonyService.deleteCeremony(1L, 1L);

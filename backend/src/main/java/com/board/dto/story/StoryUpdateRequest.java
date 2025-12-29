@@ -39,4 +39,9 @@ public class StoryUpdateRequest {
     private Long sprintId;
 
     private Long assigneeId;
+
+    private Long boardColumnId;
+
+    @Min(value = 0, message = "Position must be non-negative")
+    private Integer position;
 }

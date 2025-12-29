@@ -9,7 +9,6 @@ import com.board.entity.User;
 import com.board.entity.enums.Role;
 import com.board.exception.ConflictException;
 import com.board.exception.ForbiddenException;
-import com.board.exception.NotFoundException;
 import com.board.mapper.ProjectMemberMapper;
 import com.board.repository.ProjectMemberRepository;
 import com.board.repository.ProjectRepository;
@@ -57,6 +56,7 @@ class ProjectMemberServiceImplTest {
     private User memberUser;
     private Project project;
     private ProjectMember projectMember;
+    private ProjectMember ownerMember;
     private ProjectMemberResponse memberResponse;
 
     @BeforeEach
@@ -89,6 +89,13 @@ class ProjectMemberServiceImplTest {
                 .role(Role.DEVELOPER)
                 .build();
 
+        ownerMember = ProjectMember.builder()
+                .id(10L)
+                .user(owner)
+                .project(project)
+                .role(Role.PRODUCT_OWNER)
+                .build();
+
         memberResponse = ProjectMemberResponse.builder()
                 .id(1L)
                 .userId(2L)
@@ -111,9 +118,12 @@ class ProjectMemberServiceImplTest {
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, owner))
+                    .thenReturn(Optional.of(ownerMember));
             when(userRepository.findByEmail("member@example.com"))
                     .thenReturn(Optional.of(memberUser));
-            when(projectMemberRepository.existsByProjectAndUser(project, memberUser))
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, memberUser))
                     .thenReturn(false);
             when(projectMemberRepository.save(any(ProjectMember.class))).thenReturn(projectMember);
             when(projectMemberMapper.toResponse(any(ProjectMember.class)))
@@ -137,9 +147,12 @@ class ProjectMemberServiceImplTest {
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, owner))
+                    .thenReturn(Optional.of(ownerMember));
             when(userRepository.findByEmail("member@example.com"))
                     .thenReturn(Optional.of(memberUser));
-            when(projectMemberRepository.existsByProjectAndUser(project, memberUser))
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, memberUser))
                     .thenReturn(true);
 
             // When/Then
@@ -157,12 +170,23 @@ class ProjectMemberServiceImplTest {
                     .role(Role.DEVELOPER)
                     .build();
 
+            User devUser = User.builder().id(3L).email("dev@example.com").build();
+            ProjectMember devMember = ProjectMember.builder()
+                    .id(3L)
+                    .user(devUser)
+                    .project(project)
+                    .role(Role.DEVELOPER)
+                    .build();
+
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(userRepository.findById(3L)).thenReturn(Optional.of(devUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, devUser))
+                    .thenReturn(Optional.of(devMember));
 
             // When/Then
-            assertThatThrownBy(() -> projectMemberService.inviteMember(1L, request, 999L))
+            assertThatThrownBy(() -> projectMemberService.inviteMember(1L, request, 3L))
                     .isInstanceOf(ForbiddenException.class)
-                    .hasMessage("Only the project owner can perform this action");
+                    .hasMessage("You are not allowed to perform this action");
         }
     }
 
@@ -176,7 +200,9 @@ class ProjectMemberServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
             when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
-            when(projectMemberRepository.findByProject(project))
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, owner))
+                    .thenReturn(true);
+            when(projectMemberRepository.findByProjectAndDeletedAtIsNull(project))
                     .thenReturn(List.of(projectMember));
             when(projectMemberMapper.toResponseList(any())).thenReturn(List.of(memberResponse));
 
@@ -201,7 +227,17 @@ class ProjectMemberServiceImplTest {
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, owner))
+                    .thenReturn(Optional.of(ownerMember));
             when(projectMemberRepository.findById(1L)).thenReturn(Optional.of(projectMember));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(project, Role.SCRUM_MASTER))
+                    .thenReturn(List.of());
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(project, Role.PRODUCT_OWNER))
+                    .thenReturn(List.of(ownerMember));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(project, Role.DEVELOPER))
+                    .thenReturn(List.of(projectMember,
+                            ProjectMember.builder().id(5L).role(Role.DEVELOPER).build()));
             when(projectMemberRepository.save(any(ProjectMember.class)))
                     .thenReturn(projectMember);
             when(projectMemberMapper.toResponse(any(ProjectMember.class)))
@@ -226,7 +262,16 @@ class ProjectMemberServiceImplTest {
         void shouldSoftDeleteMemberSuccessfully() {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, owner))
+                    .thenReturn(Optional.of(ownerMember));
             when(projectMemberRepository.findById(1L)).thenReturn(Optional.of(projectMember));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(project, Role.PRODUCT_OWNER))
+                    .thenReturn(List.of(ownerMember, ProjectMember.builder().id(4L).role(Role.PRODUCT_OWNER).build()));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(project, Role.SCRUM_MASTER))
+                    .thenReturn(List.of(ProjectMember.builder().id(3L).role(Role.SCRUM_MASTER).build()));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(project, Role.DEVELOPER))
+                    .thenReturn(List.of(projectMember, ProjectMember.builder().id(5L).role(Role.DEVELOPER).build()));
 
             // When
             projectMemberService.removeMember(1L, 1L, 1L);

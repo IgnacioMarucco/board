@@ -6,6 +6,8 @@ import com.board.dto.boardcolumn.BoardColumnUpdateRequest;
 import com.board.entity.BoardColumn;
 import com.board.entity.Project;
 import com.board.entity.User;
+import com.board.entity.enums.Role;
+import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.BoardColumnMapper;
@@ -37,18 +39,7 @@ public class BoardColumnServiceImpl implements BoardColumnService {
     @Transactional
     public BoardColumnResponse createColumn(Long projectId,
             BoardColumnCreateRequest request, Long userId) {
-        Project project = findProjectById(projectId);
-        validateMembership(project, userId);
-
-        BoardColumn column = BoardColumn.builder()
-                .name(request.getName())
-                .position(request.getPosition())
-                .wipLimit(request.getWipLimit())
-                .project(project)
-                .build();
-
-        column = boardColumnRepository.save(column);
-        return boardColumnMapper.toResponse(column);
+        throw new BadRequestException("Board columns are fixed by template in v1.0");
     }
 
     @Override
@@ -78,20 +69,20 @@ public class BoardColumnServiceImpl implements BoardColumnService {
     public BoardColumnResponse updateColumn(Long projectId, Long columnId,
             BoardColumnUpdateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.SCRUM_MASTER);
 
         BoardColumn column = findColumnById(columnId);
         validateColumnBelongsToProject(column, project);
 
-        if (request.getName() != null) {
-            column.setName(request.getName());
+        if (request.getName() != null || request.getPosition() != null) {
+            throw new BadRequestException("Board columns are fixed by template in v1.0");
         }
-        if (request.getPosition() != null) {
-            column.setPosition(request.getPosition());
+
+        if (request.getWipLimit() == null) {
+            throw new BadRequestException("WIP limit is required to update a column");
         }
-        if (request.getWipLimit() != null) {
-            column.setWipLimit(request.getWipLimit());
-        }
+
+        column.setWipLimit(request.getWipLimit());
 
         column = boardColumnRepository.save(column);
         return boardColumnMapper.toResponse(column);
@@ -100,14 +91,7 @@ public class BoardColumnServiceImpl implements BoardColumnService {
     @Override
     @Transactional
     public void deleteColumn(Long projectId, Long columnId, Long userId) {
-        Project project = findProjectById(projectId);
-        validateOwnership(project, userId);
-
-        BoardColumn column = findColumnById(columnId);
-        validateColumnBelongsToProject(column, project);
-
-        column.softDelete();
-        boardColumnRepository.save(column);
+        throw new BadRequestException("Board columns are fixed by template in v1.0");
     }
 
     private Project findProjectById(Long projectId) {
@@ -129,15 +113,23 @@ public class BoardColumnServiceImpl implements BoardColumnService {
 
     private void validateMembership(Project project, Long userId) {
         User user = findUserById(userId);
-        if (!projectMemberRepository.existsByProjectAndUser(project, user)) {
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
         }
     }
 
-    private void validateOwnership(Project project, Long userId) {
-        if (!project.getOwner().getId().equals(userId)) {
-            throw new ForbiddenException("Only the project owner can perform this action");
+    private void validateRole(Project project, Long userId, Role... allowedRoles) {
+        User user = findUserById(userId);
+        Role role = projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, user)
+                .map(com.board.entity.ProjectMember::getRole)
+                .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
+
+        for (Role allowed : allowedRoles) {
+            if (allowed == role) {
+                return;
+            }
         }
+        throw new ForbiddenException("You are not allowed to perform this action");
     }
 
     private void validateColumnBelongsToProject(BoardColumn column, Project project) {

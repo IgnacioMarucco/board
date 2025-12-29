@@ -7,6 +7,7 @@ import com.board.entity.Epic;
 import com.board.entity.Project;
 import com.board.entity.User;
 import com.board.entity.enums.EpicStatus;
+import com.board.entity.enums.Role;
 import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
@@ -39,7 +40,7 @@ public class EpicServiceImpl implements EpicService {
     @Transactional
     public EpicResponse createEpic(Long projectId, EpicCreateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.PRODUCT_OWNER);
 
         if (epicRepository.findByKey(request.getKey()).isPresent()) {
             throw new BadRequestException("Epic key already exists");
@@ -84,7 +85,7 @@ public class EpicServiceImpl implements EpicService {
     public EpicResponse updateEpic(Long projectId, Long epicId,
             EpicUpdateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.PRODUCT_OWNER);
 
         Epic epic = findEpicById(epicId);
         validateEpicBelongsToProject(epic, project);
@@ -107,7 +108,7 @@ public class EpicServiceImpl implements EpicService {
     @Transactional
     public void deleteEpic(Long projectId, Long epicId, Long userId) {
         Project project = findProjectById(projectId);
-        validateOwnership(project, userId);
+        validateRole(project, userId, Role.PRODUCT_OWNER);
 
         Epic epic = findEpicById(epicId);
         validateEpicBelongsToProject(epic, project);
@@ -135,15 +136,23 @@ public class EpicServiceImpl implements EpicService {
 
     private void validateMembership(Project project, Long userId) {
         User user = findUserById(userId);
-        if (!projectMemberRepository.existsByProjectAndUser(project, user)) {
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
         }
     }
 
-    private void validateOwnership(Project project, Long userId) {
-        if (!project.getOwner().getId().equals(userId)) {
-            throw new ForbiddenException("Only the project owner can perform this action");
+    private void validateRole(Project project, Long userId, Role... allowedRoles) {
+        User user = findUserById(userId);
+        Role role = projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, user)
+                .map(com.board.entity.ProjectMember::getRole)
+                .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
+
+        for (Role allowed : allowedRoles) {
+            if (allowed == role) {
+                return;
+            }
         }
+        throw new ForbiddenException("You are not allowed to perform this action");
     }
 
     private void validateEpicBelongsToProject(Epic epic, Project project) {

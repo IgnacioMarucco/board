@@ -6,6 +6,7 @@ import com.board.dto.sprint.SprintUpdateRequest;
 import com.board.entity.Project;
 import com.board.entity.Sprint;
 import com.board.entity.User;
+import com.board.entity.enums.Role;
 import com.board.entity.enums.SprintStatus;
 import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
@@ -40,7 +41,7 @@ public class SprintServiceImpl implements SprintService {
     @Transactional
     public SprintResponse createSprint(Long projectId, SprintCreateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.SCRUM_MASTER);
 
         if (request.getEndDate().isBefore(request.getStartDate())) {
             throw new BadRequestException("End date must be after start date");
@@ -86,13 +87,22 @@ public class SprintServiceImpl implements SprintService {
     public SprintResponse updateSprint(Long projectId, Long sprintId,
             SprintUpdateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        Role role = getRoleForProject(project, userId);
 
         Sprint sprint = findSprintById(sprintId);
         validateSprintBelongsToProject(sprint, project);
 
         if (sprint.getStatus() == SprintStatus.COMPLETED) {
             throw new BadRequestException("Cannot update a completed sprint");
+        }
+
+        boolean editingSchedule = request.getName() != null
+                || request.getStartDate() != null
+                || request.getEndDate() != null;
+        if (editingSchedule) {
+            requireRole(role, Role.SCRUM_MASTER);
+        } else if (request.getGoal() != null) {
+            requireRole(role, Role.SCRUM_MASTER, Role.PRODUCT_OWNER);
         }
 
         if (request.getName() != null) {
@@ -120,7 +130,7 @@ public class SprintServiceImpl implements SprintService {
     @Transactional
     public void deleteSprint(Long projectId, Long sprintId, Long userId) {
         Project project = findProjectById(projectId);
-        validateOwnership(project, userId);
+        validateRole(project, userId, Role.SCRUM_MASTER);
 
         Sprint sprint = findSprintById(sprintId);
         validateSprintBelongsToProject(sprint, project);
@@ -137,7 +147,7 @@ public class SprintServiceImpl implements SprintService {
     @Transactional
     public SprintResponse startSprint(Long projectId, Long sprintId, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.SCRUM_MASTER);
 
         Sprint sprint = findSprintById(sprintId);
         validateSprintBelongsToProject(sprint, project);
@@ -162,7 +172,7 @@ public class SprintServiceImpl implements SprintService {
     @Transactional
     public SprintResponse completeSprint(Long projectId, Long sprintId, Long userId) {
         Project project = findProjectById(projectId);
-        validateMembership(project, userId);
+        validateRole(project, userId, Role.SCRUM_MASTER);
 
         Sprint sprint = findSprintById(sprintId);
         validateSprintBelongsToProject(sprint, project);
@@ -195,20 +205,35 @@ public class SprintServiceImpl implements SprintService {
 
     private void validateMembership(Project project, Long userId) {
         User user = findUserById(userId);
-        if (!projectMemberRepository.existsByProjectAndUser(project, user)) {
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
         }
     }
 
-    private void validateOwnership(Project project, Long userId) {
-        if (!project.getOwner().getId().equals(userId)) {
-            throw new ForbiddenException("Only the project owner can perform this action");
-        }
+    private Role getRoleForProject(Project project, Long userId) {
+        User user = findUserById(userId);
+        return projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, user)
+                .map(com.board.entity.ProjectMember::getRole)
+                .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
     }
 
     private void validateSprintBelongsToProject(Sprint sprint, Project project) {
         if (!sprint.getProject().getId().equals(project.getId())) {
             throw new NotFoundException("Sprint not found in this project");
         }
+    }
+
+    private void validateRole(Project project, Long userId, Role... allowedRoles) {
+        Role role = getRoleForProject(project, userId);
+        requireRole(role, allowedRoles);
+    }
+
+    private void requireRole(Role role, Role... allowedRoles) {
+        for (Role allowed : allowedRoles) {
+            if (allowed == role) {
+                return;
+            }
+        }
+        throw new ForbiddenException("You are not allowed to perform this action");
     }
 }
