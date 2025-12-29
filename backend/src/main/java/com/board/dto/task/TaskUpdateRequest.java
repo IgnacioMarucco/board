@@ -2,6 +2,7 @@ package com.board.dto.task;
 
 import com.board.entity.enums.TaskStatus;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,4 +32,7 @@ public class TaskUpdateRequest {
     private BigDecimal estimatedHours;
 
     private Long assigneeId;
+
+    @Min(value = 0, message = "Position must be non-negative")
+    private Integer position;
 }

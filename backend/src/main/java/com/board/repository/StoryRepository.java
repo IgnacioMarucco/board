@@ -29,6 +29,8 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
 
     List<Story> findBySprintAndBoardColumnOrderByPositionAsc(Sprint sprint, BoardColumn column);
 
+    int countBySprintAndBoardColumnAndDeletedAtIsNull(Sprint sprint, BoardColumn column);
+
     List<Story> findByAssignee(User assignee);
 
     List<Story> findBySprintAndStatus(Sprint sprint, StoryStatus status);
@@ -37,4 +39,9 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
 
     @Query("SELECT s FROM Story s WHERE s.epic.project = :project ORDER BY s.position ASC")
     List<Story> findByEpicProjectOrderByPositionAsc(@Param("project") com.board.entity.Project project);
+
+    @Query("SELECT s FROM Story s WHERE s.epic.project = :project AND s.sprint IS NULL "
+            + "ORDER BY s.position ASC")
+    List<Story> findByEpicProjectAndSprintIsNullOrderByPositionAsc(
+            @Param("project") com.board.entity.Project project);
 }

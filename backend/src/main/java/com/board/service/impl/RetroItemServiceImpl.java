@@ -128,8 +128,7 @@ public class RetroItemServiceImpl implements RetroItemService {
 
     private void validateMembership(Project project, Long userId) {
         User user = findUserById(userId);
-        if (!project.getOwner().getId().equals(userId)
-                && !projectMemberRepository.existsByProjectAndUser(project, user)) {
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
             throw new ForbiddenException("You are not a member of this project");
         }
     }

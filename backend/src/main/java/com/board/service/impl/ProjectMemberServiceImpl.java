@@ -6,6 +6,7 @@ import com.board.dto.projectmember.ProjectMemberUpdateRequest;
 import com.board.entity.Project;
 import com.board.entity.ProjectMember;
 import com.board.entity.User;
+import com.board.entity.enums.Role;
 import com.board.exception.ConflictException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
@@ -38,14 +39,14 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     public ProjectMemberResponse inviteMember(Long projectId,
             ProjectMemberInviteRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateOwnership(project, userId);
+        validateRole(project, userId, Role.PRODUCT_OWNER);
 
         User userToInvite = userRepository.findByEmail(request.getUserEmail())
                 .orElseThrow(() -> new NotFoundException("User not found with email: "
                         + request.getUserEmail()));
 
         // Check if user is already a member
-        if (projectMemberRepository.existsByProjectAndUser(project, userToInvite)) {
+        if (projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, userToInvite)) {
             throw new ConflictException("User is already a member of this project");
         }
 
@@ -53,6 +54,8 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         if (project.getOwner().getId().equals(userToInvite.getId())) {
             throw new ConflictException("Project owner is already part of the project");
         }
+
+        validateRoleAvailability(project, request.getRole());
 
         ProjectMember member = ProjectMember.builder()
                 .user(userToInvite)
@@ -71,7 +74,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         Project project = findProjectById(projectId);
         validateMembership(project, userId);
 
-        List<ProjectMember> members = projectMemberRepository.findByProject(project);
+        List<ProjectMember> members = projectMemberRepository.findByProjectAndDeletedAtIsNull(project);
         return projectMemberMapper.toResponseList(members);
     }
 
@@ -92,10 +95,12 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     public ProjectMemberResponse updateMemberRole(Long projectId, Long memberId,
             ProjectMemberUpdateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        validateOwnership(project, userId);
+        validateRole(project, userId, Role.PRODUCT_OWNER, Role.SCRUM_MASTER);
 
         ProjectMember member = findMemberById(memberId);
         validateMemberBelongsToProject(member, project);
+
+        validateRoleChange(project, member, request.getRole());
 
         member.setRole(request.getRole());
         member = projectMemberRepository.save(member);
@@ -107,10 +112,16 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Transactional
     public void removeMember(Long projectId, Long memberId, Long userId) {
         Project project = findProjectById(projectId);
-        validateOwnership(project, userId);
+        validateRole(project, userId, Role.PRODUCT_OWNER);
 
         ProjectMember member = findMemberById(memberId);
         validateMemberBelongsToProject(member, project);
+
+        if (project.getOwner().getId().equals(member.getUser().getId())) {
+            throw new ForbiddenException("Cannot remove the project owner");
+        }
+
+        validateRoleCountsAfterRemoval(project, member);
 
         member.softDelete();
         projectMemberRepository.save(member);
@@ -133,17 +144,84 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 
-    private void validateOwnership(Project project, Long userId) {
-        if (!project.getOwner().getId().equals(userId)) {
-            throw new ForbiddenException("Only the project owner can perform this action");
+    private void validateMembership(Project project, Long userId) {
+        User user = findUserById(userId);
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
+            throw new ForbiddenException("You are not a member of this project");
         }
     }
 
-    private void validateMembership(Project project, Long userId) {
+    private Role getRoleForProject(Project project, Long userId) {
         User user = findUserById(userId);
-        if (!project.getOwner().getId().equals(userId)
-                && !projectMemberRepository.existsByProjectAndUser(project, user)) {
-            throw new ForbiddenException("You are not a member of this project");
+        ProjectMember member = projectMemberRepository
+                .findByProjectAndUserAndDeletedAtIsNull(project, user)
+                .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
+        return member.getRole();
+    }
+
+    private void validateRole(Project project, Long userId, Role... allowedRoles) {
+        Role role = getRoleForProject(project, userId);
+        for (Role allowed : allowedRoles) {
+            if (allowed == role) {
+                return;
+            }
+        }
+        throw new ForbiddenException("You are not allowed to perform this action");
+    }
+
+    private void validateRoleAvailability(Project project, Role role) {
+        if (role == Role.SCRUM_MASTER) {
+            List<ProjectMember> scrumMasters = projectMemberRepository
+                    .findByProjectAndRoleAndDeletedAtIsNull(project, Role.SCRUM_MASTER);
+            if (!scrumMasters.isEmpty()) {
+                throw new ConflictException("Project already has a Scrum Master");
+            }
+        }
+    }
+
+    private void validateRoleChange(Project project, ProjectMember member, Role newRole) {
+        if (member.getRole() == newRole) {
+            return;
+        }
+
+        if (newRole == Role.SCRUM_MASTER) {
+            validateRoleAvailability(project, newRole);
+        }
+
+        List<ProjectMember> productOwners = projectMemberRepository
+                .findByProjectAndRoleAndDeletedAtIsNull(project, Role.PRODUCT_OWNER);
+        List<ProjectMember> scrumMasters = projectMemberRepository
+                .findByProjectAndRoleAndDeletedAtIsNull(project, Role.SCRUM_MASTER);
+        List<ProjectMember> developers = projectMemberRepository
+                .findByProjectAndRoleAndDeletedAtIsNull(project, Role.DEVELOPER);
+
+        if (member.getRole() == Role.PRODUCT_OWNER && productOwners.size() <= 1) {
+            throw new ConflictException("Project must have at least one Product Owner");
+        }
+        if (member.getRole() == Role.SCRUM_MASTER && scrumMasters.size() <= 1) {
+            throw new ConflictException("Project must have exactly one Scrum Master");
+        }
+        if (member.getRole() == Role.DEVELOPER && developers.size() <= 1) {
+            throw new ConflictException("Project must have at least one Developer");
+        }
+    }
+
+    private void validateRoleCountsAfterRemoval(Project project, ProjectMember member) {
+        List<ProjectMember> productOwners = projectMemberRepository
+                .findByProjectAndRoleAndDeletedAtIsNull(project, Role.PRODUCT_OWNER);
+        List<ProjectMember> scrumMasters = projectMemberRepository
+                .findByProjectAndRoleAndDeletedAtIsNull(project, Role.SCRUM_MASTER);
+        List<ProjectMember> developers = projectMemberRepository
+                .findByProjectAndRoleAndDeletedAtIsNull(project, Role.DEVELOPER);
+
+        if (member.getRole() == Role.PRODUCT_OWNER && productOwners.size() <= 1) {
+            throw new ConflictException("Project must have at least one Product Owner");
+        }
+        if (member.getRole() == Role.SCRUM_MASTER && scrumMasters.size() <= 1) {
+            throw new ConflictException("Project must have exactly one Scrum Master");
+        }
+        if (member.getRole() == Role.DEVELOPER && developers.size() <= 1) {
+            throw new ConflictException("Project must have at least one Developer");
         }
     }
 
