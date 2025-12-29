@@ -44,5 +44,8 @@ public class StoryCreateRequest {
 
     private Long sprintId;
 
+    @Size(max = 500, message = "Sprint change reason cannot exceed 500 characters")
+    private String sprintChangeReason;
+
     private Long assigneeId;
 }

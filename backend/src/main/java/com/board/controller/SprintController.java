@@ -2,6 +2,7 @@ package com.board.controller;
 
 import com.board.dto.sprint.SprintCreateRequest;
 import com.board.dto.sprint.SprintResponse;
+import com.board.dto.sprint.SprintSummaryResponse;
 import com.board.dto.sprint.SprintUpdateRequest;
 import com.board.security.UserPrincipal;
 import com.board.service.SprintService;
@@ -155,5 +156,23 @@ public class SprintController {
             @PathVariable Long sprintId,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(sprintService.completeSprint(projectId, sprintId, principal.getUserId()));
+    }
+
+    /**
+     * Gets summary metrics for a sprint.
+     *
+     * @param projectId the project ID
+     * @param sprintId  the sprint ID
+     * @param principal the authenticated user
+     * @return the sprint summary
+     */
+    @GetMapping("/{sprintId}/summary")
+    @Operation(summary = "Get sprint summary metrics")
+    public ResponseEntity<SprintSummaryResponse> getSprintSummary(
+            @PathVariable Long projectId,
+            @PathVariable Long sprintId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(
+                sprintService.getSprintSummary(projectId, sprintId, principal.getUserId()));
     }
 }

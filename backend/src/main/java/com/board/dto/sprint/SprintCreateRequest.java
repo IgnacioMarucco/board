@@ -1,6 +1,7 @@
 package com.board.dto.sprint;
 
 import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -33,4 +34,7 @@ public class SprintCreateRequest {
     @NotNull(message = "End date is required")
     @Future(message = "End date must be in the future")
     private LocalDate endDate;
+
+    @Min(value = 0, message = "Capacity points must be non-negative")
+    private Integer capacityPoints;
 }

@@ -19,6 +19,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,6 +47,39 @@ public class Sprint extends BaseEntity {
 
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
+
+    @Column(name = "capacity_points")
+    private Integer capacityPoints;
+
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Builder.Default
+    @Column(name = "committed_points", nullable = false)
+    private Integer committedPoints = 0;
+
+    @Builder.Default
+    @Column(name = "committed_story_count", nullable = false)
+    private Integer committedStoryCount = 0;
+
+    @Builder.Default
+    @Column(name = "completed_points", nullable = false)
+    private Integer completedPoints = 0;
+
+    @Builder.Default
+    @Column(name = "completed_story_count", nullable = false)
+    private Integer completedStoryCount = 0;
+
+    @Builder.Default
+    @Column(name = "spillover_count", nullable = false)
+    private Integer spilloverCount = 0;
+
+    @Builder.Default
+    @Column(name = "scope_change_count", nullable = false)
+    private Integer scopeChangeCount = 0;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)

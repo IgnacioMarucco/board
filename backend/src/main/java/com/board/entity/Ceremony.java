@@ -2,6 +2,7 @@ package com.board.entity;
 
 import com.board.entity.enums.CeremonyStatus;
 import com.board.entity.enums.CeremonyType;
+import com.board.entity.enums.RetroTemplate;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,6 +59,10 @@ public class Ceremony extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "retro_template", length = 30)
+    private RetroTemplate retroTemplate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sprint_id", nullable = false)
