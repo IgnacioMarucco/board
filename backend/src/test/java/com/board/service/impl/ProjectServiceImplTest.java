@@ -14,6 +14,7 @@ import com.board.exception.BadRequestException;
 import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.ProjectMapper;
+import com.board.repository.BoardColumnRepository;
 import com.board.repository.ProjectMemberRepository;
 import com.board.repository.ProjectRepository;
 import com.board.repository.UserRepository;
@@ -47,6 +48,9 @@ class ProjectServiceImplTest {
 
     @Mock
     private ProjectMemberRepository projectMemberRepository;
+
+    @Mock
+    private BoardColumnRepository boardColumnRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -113,6 +117,8 @@ class ProjectServiceImplTest {
             when(projectRepository.existsByKey("NEW")).thenReturn(false);
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(projectRepository.save(any(Project.class))).thenReturn(testProject);
+            when(boardColumnRepository.countByProject(testProject)).thenReturn(0);
+            when(boardColumnRepository.saveAll(any())).thenReturn(List.of());
             when(projectMemberRepository.save(any(ProjectMember.class))).thenReturn(testMember);
             when(projectMapper.toResponse(any(Project.class))).thenReturn(testProjectResponse);
 
@@ -123,6 +129,7 @@ class ProjectServiceImplTest {
             assertThat(response).isNotNull();
             assertThat(response.getKey()).isEqualTo("TEST");
             verify(projectRepository).save(any(Project.class));
+            verify(boardColumnRepository).saveAll(any());
             verify(projectMemberRepository).save(any(ProjectMember.class));
         }
 
@@ -154,7 +161,8 @@ class ProjectServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(projectMapper.toResponse(testProject)).thenReturn(testProjectResponse);
 
             // When
@@ -183,7 +191,8 @@ class ProjectServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(any(), any())).thenReturn(false);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(any(), any()))
+                    .thenReturn(false);
 
             // When/Then
             assertThatThrownBy(() -> projectService.getProject(1L, 2L))
@@ -205,6 +214,9 @@ class ProjectServiceImplTest {
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(testMember));
             when(projectRepository.save(any(Project.class))).thenReturn(testProject);
             when(projectMapper.toResponse(any(Project.class))).thenReturn(testProjectResponse);
 
@@ -218,18 +230,29 @@ class ProjectServiceImplTest {
 
         @Test
         @DisplayName("should throw ForbiddenException when user is not owner")
-        void shouldThrowWhenUserNotOwner() {
+        void shouldThrowWhenUserNotAllowed() {
             // Given
             ProjectUpdateRequest request = ProjectUpdateRequest.builder()
                     .name("Updated")
                     .build();
 
+            User devUser = User.builder().id(2L).email("dev@example.com").build();
+            ProjectMember devMember = ProjectMember.builder()
+                    .id(2L)
+                    .project(testProject)
+                    .user(devUser)
+                    .role(Role.DEVELOPER)
+                    .build();
+
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(2L)).thenReturn(Optional.of(devUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, devUser))
+                    .thenReturn(Optional.of(devMember));
 
             // When/Then
-            assertThatThrownBy(() -> projectService.updateProject(1L, request, 999L))
+            assertThatThrownBy(() -> projectService.updateProject(1L, request, 2L))
                     .isInstanceOf(ForbiddenException.class)
-                    .hasMessage("Only the project owner can perform this action");
+                    .hasMessage("You are not allowed to perform this action");
         }
     }
 
@@ -272,8 +295,12 @@ class ProjectServiceImplTest {
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(testMember));
             when(userRepository.findById(2L)).thenReturn(Optional.of(newUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, newUser)).thenReturn(false);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, newUser))
+                    .thenReturn(false);
             when(projectMemberRepository.save(any(ProjectMember.class))).thenReturn(testMember);
             when(projectMapper.toMemberResponse(any(ProjectMember.class))).thenReturn(memberResponse);
 
@@ -296,8 +323,12 @@ class ProjectServiceImplTest {
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(testMember));
             when(userRepository.findById(2L)).thenReturn(Optional.of(existingUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, existingUser)).thenReturn(true);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, existingUser))
+                    .thenReturn(true);
 
             // When/Then
             assertThatThrownBy(() -> projectService.addMember(1L, request, 1L))
@@ -319,18 +350,28 @@ class ProjectServiceImplTest {
                     .id(2L)
                     .project(testProject)
                     .user(memberUser)
+                    .role(Role.DEVELOPER)
                     .build();
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(testMember));
             when(userRepository.findById(2L)).thenReturn(Optional.of(memberUser));
-            when(projectMemberRepository.findByProjectAndUser(testProject, memberUser))
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, memberUser))
                     .thenReturn(Optional.of(member));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(testProject, Role.PRODUCT_OWNER))
+                    .thenReturn(List.of(testMember));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(testProject, Role.SCRUM_MASTER))
+                    .thenReturn(List.of(ProjectMember.builder().id(3L).role(Role.SCRUM_MASTER).build()));
+            when(projectMemberRepository.findByProjectAndRoleAndDeletedAtIsNull(testProject, Role.DEVELOPER))
+                    .thenReturn(List.of(member, ProjectMember.builder().id(4L).role(Role.DEVELOPER).build()));
 
             // When
             projectService.removeMember(1L, 2L, 1L);
 
             // Then
-            verify(projectMemberRepository).delete(member);
+            verify(projectMemberRepository).save(member);
         }
 
         @Test
@@ -338,6 +379,9 @@ class ProjectServiceImplTest {
         void shouldThrowWhenRemovingOwner() {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(Optional.of(testMember));
 
             // When/Then
             assertThatThrownBy(() -> projectService.removeMember(1L, 1L, 1L))
@@ -355,7 +399,8 @@ class ProjectServiceImplTest {
         void shouldReturnProjectsForUser() {
             // Given
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.findByUser(testUser)).thenReturn(List.of(testMember));
+            when(projectMemberRepository.findByUserAndDeletedAtIsNull(testUser))
+                    .thenReturn(List.of(testMember));
             when(projectMapper.toResponseList(any())).thenReturn(List.of(testProjectResponse));
 
             // When
@@ -389,8 +434,10 @@ class ProjectServiceImplTest {
 
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(testProject, testUser)).thenReturn(true);
-            when(projectMemberRepository.findByProject(testProject)).thenReturn(List.of(testMember, member2Entity));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
+            when(projectMemberRepository.findByProjectAndDeletedAtIsNull(testProject))
+                    .thenReturn(List.of(testMember, member2Entity));
             when(projectMapper.toMemberResponseList(any())).thenReturn(List.of(
                     ProjectMemberResponse.builder().userId(1L).role(Role.PRODUCT_OWNER).build(),
                     memberResponse2
@@ -401,7 +448,7 @@ class ProjectServiceImplTest {
 
             // Then
             assertThat(response).hasSize(2);
-            verify(projectMemberRepository).findByProject(testProject);
+            verify(projectMemberRepository).findByProjectAndDeletedAtIsNull(testProject);
         }
 
         @Test
@@ -410,7 +457,8 @@ class ProjectServiceImplTest {
             // Given
             when(projectRepository.findById(1L)).thenReturn(Optional.of(testProject));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
-            when(projectMemberRepository.existsByProjectAndUser(any(), any())).thenReturn(false);
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(any(), any()))
+                    .thenReturn(false);
 
             // When/Then
             assertThatThrownBy(() -> projectService.getMembers(1L, 2L))

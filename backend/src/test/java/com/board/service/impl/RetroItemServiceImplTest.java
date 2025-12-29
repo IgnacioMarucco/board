@@ -96,6 +96,8 @@ class RetroItemServiceImplTest {
 
             when(ceremonyRepository.findById(1L)).thenReturn(Optional.of(testCeremony));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(retroItemRepository.save(any(RetroItem.class))).thenReturn(testRetroItem);
             when(retroItemMapper.toResponse(any())).thenReturn(testResponse);
 
@@ -119,6 +121,8 @@ class RetroItemServiceImplTest {
 
             when(ceremonyRepository.findById(1L)).thenReturn(Optional.of(testCeremony));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
 
             // When/Then
             assertThatThrownBy(() -> retroItemService.createRetroItem(1L, request, 1L))
@@ -136,6 +140,8 @@ class RetroItemServiceImplTest {
             // Given
             when(ceremonyRepository.findById(1L)).thenReturn(Optional.of(testCeremony));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(retroItemRepository.findByCeremonyOrderByVotesDescCreatedAtAsc(testCeremony))
                     .thenReturn(List.of(testRetroItem));
             when(retroItemMapper.toResponseList(any())).thenReturn(List.of(testResponse));
@@ -184,6 +190,8 @@ class RetroItemServiceImplTest {
             // Given
             when(retroItemRepository.findById(1L)).thenReturn(Optional.of(testRetroItem));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
             when(retroItemRepository.save(testRetroItem)).thenReturn(testRetroItem);
             when(retroItemMapper.toResponse(testRetroItem)).thenReturn(testResponse);
 

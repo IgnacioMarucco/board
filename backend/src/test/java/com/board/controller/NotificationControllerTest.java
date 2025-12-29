@@ -3,7 +3,6 @@ package com.board.controller;
 import com.board.dto.notification.NotificationResponse;
 import com.board.security.WithMockCustomUser;
 import com.board.service.NotificationService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,9 +34,6 @@ class NotificationControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @MockBean
     private NotificationService notificationService;
