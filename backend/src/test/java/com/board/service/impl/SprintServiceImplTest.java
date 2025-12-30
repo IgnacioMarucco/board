@@ -17,6 +17,7 @@ import com.board.repository.SprintRepository;
 import com.board.repository.StoryRepository;
 import com.board.repository.UserRepository;
 import com.board.repository.CeremonyRepository;
+import com.board.service.MetricsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -62,6 +63,9 @@ class SprintServiceImplTest {
 
     @Mock
     private SprintMapper sprintMapper;
+
+    @Mock
+    private MetricsService metricsService;
 
     @InjectMocks
     private SprintServiceImpl sprintService;

@@ -23,6 +23,7 @@ import com.board.repository.ProjectRepository;
 import com.board.repository.SprintRepository;
 import com.board.repository.StoryRepository;
 import com.board.repository.UserRepository;
+import com.board.service.MetricsService;
 import com.board.service.SprintService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -49,6 +50,7 @@ public class SprintServiceImpl implements SprintService {
     private final StoryRepository storyRepository;
     private final CeremonyRepository ceremonyRepository;
     private final SprintMapper sprintMapper;
+    private final MetricsService metricsService;
 
     @Override
     @Transactional
@@ -186,6 +188,7 @@ public class SprintServiceImpl implements SprintService {
         sprint.setStatus(SprintStatus.ACTIVE);
         sprint.setStartedAt(LocalDateTime.now());
         sprint = sprintRepository.save(sprint);
+        metricsService.captureSprintSnapshot(projectId, sprintId);
         return sprintMapper.toResponse(sprint);
     }
 
@@ -207,6 +210,7 @@ public class SprintServiceImpl implements SprintService {
         sprint.setStatus(SprintStatus.COMPLETED);
         sprint.setCompletedAt(LocalDateTime.now());
         sprint = sprintRepository.save(sprint);
+        metricsService.captureSprintSnapshot(projectId, sprintId);
         return sprintMapper.toResponse(sprint);
     }
 
