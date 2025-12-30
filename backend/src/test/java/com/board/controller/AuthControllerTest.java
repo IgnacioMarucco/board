@@ -53,6 +53,7 @@ class AuthControllerTest {
                                 .user(AuthResponse.UserInfo.builder()
                                                 .id(1L)
                                                 .email("test@example.com")
+                                                .username("testuser")
                                                 .firstName("Test")
                                                 .lastName("User")
                                                 .build())
@@ -66,6 +67,7 @@ class AuthControllerTest {
                 RegisterRequest request = RegisterRequest.builder()
                                 .email("new@example.com")
                                 .password("password123")
+                                .username("newuser")
                                 .firstName("New")
                                 .lastName("User")
                                 .build();
@@ -89,6 +91,7 @@ class AuthControllerTest {
                 RegisterRequest request = RegisterRequest.builder()
                                 .email("invalid-email")
                                 .password("password123")
+                                .username("newuser")
                                 .firstName("Test")
                                 .lastName("User")
                                 .build();

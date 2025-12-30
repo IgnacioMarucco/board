@@ -72,6 +72,12 @@ class StoryServiceImplTest {
     @Mock
     private StoryMapper storyMapper;
 
+    @Mock
+    private StoryActivityHelper storyActivityHelper;
+
+    @Mock
+    private StoryCapacityValidator storyCapacityValidator;
+
     @InjectMocks
     private StoryServiceImpl storyService;
 
@@ -89,6 +95,7 @@ class StoryServiceImplTest {
         testUser = User.builder()
                 .id(1L)
                 .email("user@example.com")
+                .username("testuser")
                 .build();
 
         testProject = Project.builder()

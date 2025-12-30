@@ -4,12 +4,12 @@ import com.board.dto.story.StoryAssignRequest;
 import com.board.dto.story.StoryCreateRequest;
 import com.board.dto.story.StoryResponse;
 import com.board.dto.story.StoryUpdateRequest;
+import com.board.entity.BoardColumn;
 import com.board.entity.Epic;
 import com.board.entity.Project;
 import com.board.entity.Sprint;
 import com.board.entity.Story;
 import com.board.entity.User;
-import com.board.entity.BoardColumn;
 import com.board.entity.enums.Priority;
 import com.board.entity.enums.Role;
 import com.board.entity.enums.StoryStatus;
@@ -51,12 +51,15 @@ public class StoryServiceImpl implements StoryService {
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;
     private final StoryMapper storyMapper;
+    private final StoryActivityHelper storyActivityHelper;
+    private final StoryCapacityValidator storyCapacityValidator;
 
     @Override
     @Transactional
     public StoryResponse createStory(Long projectId, StoryCreateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        requireRole(getRoleForProject(project, userId), Role.PRODUCT_OWNER);
+        User actor = findUserById(userId);
+        requireRole(getRoleForProject(project, actor), Role.PRODUCT_OWNER);
 
         if (storyRepository.findByKey(request.getKey()).isPresent()) {
             throw new BadRequestException("Story key already exists");
@@ -93,6 +96,7 @@ public class StoryServiceImpl implements StoryService {
         story.setPosition(calculateInitialPosition(project, story.getSprint(), story.getBoardColumn()));
 
         story = storyRepository.save(story);
+        storyActivityHelper.notifyAssignmentIfChanged(actor, story.getAssignee(), null, story);
         return storyMapper.toResponse(story);
     }
 
@@ -125,17 +129,21 @@ public class StoryServiceImpl implements StoryService {
     public StoryResponse updateStory(Long projectId, Long storyId,
             StoryUpdateRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        Role role = getRoleForProject(project, userId);
+        User actor = findUserById(userId);
+        Role role = getRoleForProject(project, actor);
 
         Story story = findStoryById(storyId);
         validateBelongsToProject(project,
                 story.getEpic() != null ? story.getEpic().getProject() : null,
                 "Story not found in this project");
 
+        StoryActivityHelper.StoryChangeSnapshot snapshot = storyActivityHelper.snapshot(story);
+
         applyContentUpdates(request, story, role, project, userId);
         applyScopeUpdates(request, story, role, project);
 
         story = storyRepository.save(story);
+        storyActivityHelper.recordChanges(project, actor, story, snapshot);
         return storyMapper.toResponse(story);
     }
 
@@ -143,7 +151,8 @@ public class StoryServiceImpl implements StoryService {
     @Transactional
     public void deleteStory(Long projectId, Long storyId, Long userId) {
         Project project = findProjectById(projectId);
-        requireRole(getRoleForProject(project, userId), Role.PRODUCT_OWNER);
+        User actor = findUserById(userId);
+        requireRole(getRoleForProject(project, actor), Role.PRODUCT_OWNER);
 
         Story story = findStoryById(storyId);
         validateBelongsToProject(project,
@@ -159,7 +168,8 @@ public class StoryServiceImpl implements StoryService {
     public StoryResponse assignStory(Long projectId, Long storyId,
             StoryAssignRequest request, Long userId) {
         Project project = findProjectById(projectId);
-        Role role = getRoleForProject(project, userId);
+        User actor = findUserById(userId);
+        Role role = getRoleForProject(project, actor);
 
         Story story = findStoryById(storyId);
         validateBelongsToProject(project,
@@ -173,9 +183,11 @@ public class StoryServiceImpl implements StoryService {
         User assignee = findUserById(request.getAssigneeId());
         validateMembership(project, assignee.getId());
 
+        StoryActivityHelper.StoryChangeSnapshot snapshot = storyActivityHelper.snapshot(story);
         story.setAssignee(assignee);
         story = storyRepository.save(story);
 
+        storyActivityHelper.recordChanges(project, actor, story, snapshot);
         return storyMapper.toResponse(story);
     }
 
@@ -215,8 +227,7 @@ public class StoryServiceImpl implements StoryService {
         }
     }
 
-    private Role getRoleForProject(Project project, Long userId) {
-        User user = findUserById(userId);
+    private Role getRoleForProject(Project project, User user) {
         return projectMemberRepository.findByProjectAndUserAndDeletedAtIsNull(project, user)
                 .map(com.board.entity.ProjectMember::getRole)
                 .orElseThrow(() -> new ForbiddenException("You are not a member of this project"));
@@ -266,7 +277,7 @@ public class StoryServiceImpl implements StoryService {
             }
             story.setStoryPoints(request.getStoryPoints());
             if (story.getSprint() != null) {
-                validateSprintCapacity(story.getSprint(), story);
+                storyCapacityValidator.validateSprintCapacity(story.getSprint(), story);
             }
         }
         if (request.getAssigneeId() != null) {
@@ -349,7 +360,7 @@ public class StoryServiceImpl implements StoryService {
         }
         story.setSprint(sprint);
         story.setBoardColumn(findFirstColumnForProject(project));
-        validateSprintCapacity(sprint, story);
+        storyCapacityValidator.validateSprintCapacity(sprint, story);
         story.setSprintAddedAt(LocalDateTime.now());
         if (sprint.getStatus() == SprintStatus.ACTIVE) {
             sprint.setScopeChangeCount(sprint.getScopeChangeCount() + 1);
@@ -380,7 +391,7 @@ public class StoryServiceImpl implements StoryService {
         }
         BoardColumn firstColumn = findFirstColumnForProject(project);
         validateWipLimit(newSprint, firstColumn, story);
-        validateSprintCapacity(newSprint, story);
+        storyCapacityValidator.validateSprintCapacity(newSprint, story);
         story.setBoardColumn(firstColumn);
         story.setPosition(calculateInitialPosition(project, newSprint, firstColumn));
         story.setSprintAddedAt(LocalDateTime.now());
@@ -495,24 +506,6 @@ public class StoryServiceImpl implements StoryService {
                 sprint, targetColumn);
         if (count >= targetColumn.getWipLimit()) {
             throw new BadRequestException("WIP limit exceeded for column");
-        }
-    }
-
-    private void validateSprintCapacity(Sprint sprint, Story story) {
-        Integer capacityPoints = sprint.getCapacityPoints();
-        if (capacityPoints == null || capacityPoints <= 0) {
-            return;
-        }
-        int totalPoints = storyRepository.findBySprint(sprint).stream()
-                .filter(Story::isActive)
-                .filter(existing -> !existing.getId().equals(story.getId()))
-                .map(Story::getStoryPoints)
-                .filter(points -> points != null)
-                .mapToInt(Integer::intValue)
-                .sum();
-        int storyPoints = story.getStoryPoints() != null ? story.getStoryPoints() : 0;
-        if (totalPoints + storyPoints > capacityPoints) {
-            throw new BadRequestException("Sprint capacity exceeded");
         }
     }
 

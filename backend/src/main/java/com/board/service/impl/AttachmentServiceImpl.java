@@ -2,6 +2,12 @@ package com.board.service.impl;
 
 import com.board.dto.attachment.AttachmentResponse;
 import com.board.entity.Attachment;
+import com.board.entity.Ceremony;
+import com.board.entity.Comment;
+import com.board.entity.Epic;
+import com.board.entity.Project;
+import com.board.entity.Story;
+import com.board.entity.Task;
 import com.board.entity.User;
 import com.board.entity.enums.AttachmentType;
 import com.board.exception.BadRequestException;
@@ -9,6 +15,12 @@ import com.board.exception.ForbiddenException;
 import com.board.exception.NotFoundException;
 import com.board.mapper.AttachmentMapper;
 import com.board.repository.AttachmentRepository;
+import com.board.repository.CeremonyRepository;
+import com.board.repository.CommentRepository;
+import com.board.repository.EpicRepository;
+import com.board.repository.ProjectMemberRepository;
+import com.board.repository.StoryRepository;
+import com.board.repository.TaskRepository;
 import com.board.repository.UserRepository;
 import com.board.service.AttachmentService;
 import io.minio.GetObjectArgs;
@@ -44,6 +56,12 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final UserRepository userRepository;
     private final AttachmentMapper attachmentMapper;
     private final MinioClient minioClient;
+    private final EpicRepository epicRepository;
+    private final StoryRepository storyRepository;
+    private final TaskRepository taskRepository;
+    private final CommentRepository commentRepository;
+    private final CeremonyRepository ceremonyRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     @Value("${minio.bucket-name}")
     private String bucketName;
@@ -66,6 +84,8 @@ public class AttachmentServiceImpl implements AttachmentService {
         }
 
         User user = findUserById(userId);
+        Project project = resolveProjectForEntity(entityType, entityId);
+        validateMembership(project, userId);
 
         // Generate unique filename
         String originalFilename = file.getOriginalFilename();
@@ -107,7 +127,8 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Transactional(readOnly = true)
     public Resource downloadAttachment(Long attachmentId, Long userId) {
         Attachment attachment = findAttachmentById(attachmentId);
-        validateAccess(userId);
+        Project project = resolveProjectForEntity(attachment.getEntityType(), attachment.getEntityId());
+        validateMembership(project, userId);
 
         try {
             InputStream stream = minioClient.getObject(
@@ -126,7 +147,8 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Transactional(readOnly = true)
     public List<AttachmentResponse> getAttachmentsForEntity(AttachmentType entityType,
             Long entityId, Long userId) {
-        findUserById(userId);
+        Project project = resolveProjectForEntity(entityType, entityId);
+        validateMembership(project, userId);
         List<Attachment> attachments = attachmentRepository
                 .findByEntityTypeAndEntityIdOrderByCreatedAtDesc(entityType, entityId);
         return attachmentMapper.toResponseList(attachments);
@@ -136,6 +158,8 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Transactional
     public void deleteAttachment(Long attachmentId, Long userId) {
         Attachment attachment = findAttachmentById(attachmentId);
+        Project project = resolveProjectForEntity(attachment.getEntityType(), attachment.getEntityId());
+        validateMembership(project, userId);
         validateOwnership(attachment, userId);
 
         try {
@@ -160,7 +184,8 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Transactional(readOnly = true)
     public AttachmentResponse getAttachment(Long attachmentId, Long userId) {
         Attachment attachment = findAttachmentById(attachmentId);
-        validateAccess(userId);
+        Project project = resolveProjectForEntity(attachment.getEntityType(), attachment.getEntityId());
+        validateMembership(project, userId);
         return attachmentMapper.toResponse(attachment);
     }
 
@@ -175,15 +200,67 @@ public class AttachmentServiceImpl implements AttachmentService {
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 
-    private void validateAccess(Long userId) {
-        findUserById(userId);
-        // Basic access check - all authenticated users can view
-        // Can be extended with project membership checks
+    private void validateMembership(Project project, Long userId) {
+        User user = findUserById(userId);
+        if (!projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(project, user)) {
+            throw new ForbiddenException("You are not a member of this project");
+        }
+    }
+
+    private Project resolveProjectForEntity(AttachmentType entityType, Long entityId) {
+        return switch (entityType) {
+            case EPIC -> findEpicById(entityId).getProject();
+            case STORY -> findStoryById(entityId).getEpic().getProject();
+            case TASK -> findTaskById(entityId).getStory().getEpic().getProject();
+            case COMMENT -> getProjectFromComment(findCommentById(entityId));
+            case CEREMONY -> findCeremonyById(entityId).getSprint().getProject();
+        };
+    }
+
+    private Project getProjectFromComment(Comment comment) {
+        if (comment.getEpic() != null) {
+            return comment.getEpic().getProject();
+        } else if (comment.getStory() != null) {
+            return comment.getStory().getEpic().getProject();
+        } else if (comment.getTask() != null) {
+            return comment.getTask().getStory().getEpic().getProject();
+        }
+        throw new IllegalStateException("Comment must be associated with an Epic, Story, or Task");
     }
 
     private void validateOwnership(Attachment attachment, Long userId) {
         if (!attachment.getUploadedBy().getId().equals(userId)) {
             throw new ForbiddenException("You can only delete your own attachments");
         }
+    }
+
+    private Epic findEpicById(Long epicId) {
+        return epicRepository.findById(epicId)
+                .filter(e -> e.getDeletedAt() == null)
+                .orElseThrow(() -> new NotFoundException("Epic not found"));
+    }
+
+    private Story findStoryById(Long storyId) {
+        return storyRepository.findById(storyId)
+                .filter(s -> s.getDeletedAt() == null)
+                .orElseThrow(() -> new NotFoundException("Story not found"));
+    }
+
+    private Task findTaskById(Long taskId) {
+        return taskRepository.findById(taskId)
+                .filter(t -> t.getDeletedAt() == null)
+                .orElseThrow(() -> new NotFoundException("Task not found"));
+    }
+
+    private Comment findCommentById(Long commentId) {
+        return commentRepository.findById(commentId)
+                .filter(c -> c.getDeletedAt() == null)
+                .orElseThrow(() -> new NotFoundException("Comment not found"));
+    }
+
+    private Ceremony findCeremonyById(Long ceremonyId) {
+        return ceremonyRepository.findById(ceremonyId)
+                .filter(c -> c.getDeletedAt() == null)
+                .orElseThrow(() -> new NotFoundException("Ceremony not found"));
     }
 }

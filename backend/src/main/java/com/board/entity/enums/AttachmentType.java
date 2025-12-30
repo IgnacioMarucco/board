@@ -5,6 +5,21 @@ package com.board.entity.enums;
  */
 public enum AttachmentType {
     /**
+     * Attachment for epic.
+     */
+    EPIC,
+
+    /**
+     * Attachment for story.
+     */
+    STORY,
+
+    /**
+     * Attachment for task.
+     */
+    TASK,
+
+    /**
      * Attachment for comment.
      */
     COMMENT,
