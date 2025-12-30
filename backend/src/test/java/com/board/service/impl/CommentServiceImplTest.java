@@ -82,6 +82,7 @@ class CommentServiceImplTest {
         testUser = User.builder()
                 .id(1L)
                 .email("user@example.com")
+                .username("author")
                 .build();
 
         testProject = Project.builder()
@@ -151,6 +152,45 @@ class CommentServiceImplTest {
             // Then
             assertThat(response).isNotNull();
             verify(commentRepository).save(any(Comment.class));
+        }
+
+        @Test
+        @DisplayName("should notify mentioned users")
+        void shouldNotifyMentionedUsers() {
+            // Given
+            CommentCreateRequest request = CommentCreateRequest.builder()
+                    .content("Hello @bob")
+                    .build();
+
+            User mentioned = User.builder()
+                    .id(2L)
+                    .email("bob@example.com")
+                    .username("bob")
+                    .build();
+
+            when(epicRepository.findById(1L)).thenReturn(Optional.of(testEpic));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
+            when(userRepository.findByUsernameIn(java.util.Set.of("bob")))
+                    .thenReturn(java.util.List.of(mentioned));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, mentioned))
+                    .thenReturn(true);
+            when(commentRepository.save(any(Comment.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+            when(commentMapper.toResponse(any(Comment.class))).thenReturn(testCommentResponse);
+
+            // When
+            commentService.createCommentOnEpic(1L, request, 1L);
+
+            // Then
+            verify(notificationService).createNotification(
+                    mentioned,
+                    testUser,
+                    "MENTION",
+                    "Mentioned in a comment",
+                    "author mentioned you in a comment.",
+                    null);
         }
     }
 

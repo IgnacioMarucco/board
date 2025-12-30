@@ -155,6 +155,26 @@ class AttachmentServiceImplTest {
             // Then
             assertThat(responses).hasSize(1);
         }
+
+        @Test
+        @DisplayName("should resolve project for epic attachments")
+        void shouldResolveProjectForEpic() {
+            // Given
+            when(epicRepository.findById(10L)).thenReturn(Optional.of(testEpic));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(projectMemberRepository.existsByProjectAndUserAndDeletedAtIsNull(testProject, testUser))
+                    .thenReturn(true);
+            when(attachmentRepository.findByEntityTypeAndEntityIdOrderByCreatedAtDesc(
+                    AttachmentType.EPIC, 10L)).thenReturn(List.of(testAttachment));
+            when(attachmentMapper.toResponseList(any())).thenReturn(List.of(testResponse));
+
+            // When
+            List<AttachmentResponse> responses = attachmentService.getAttachmentsForEntity(
+                    AttachmentType.EPIC, 10L, 1L);
+
+            // Then
+            assertThat(responses).hasSize(1);
+        }
     }
 
     @Nested
