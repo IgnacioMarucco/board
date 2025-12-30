@@ -57,6 +57,9 @@ public class Project extends BaseEntity {
     @Column(name = "next_item_number", nullable = false)
     private Long nextItemNumber = 1L;
 
+    @Column(name = "time_zone", nullable = false, length = 50)
+    private String timeZone;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;

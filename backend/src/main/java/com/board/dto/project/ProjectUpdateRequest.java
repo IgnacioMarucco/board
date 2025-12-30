@@ -29,4 +29,7 @@ public class ProjectUpdateRequest {
     @Min(value = 1, message = "Sprint duration must be at least 1 week")
     @Max(value = 4, message = "Sprint duration cannot exceed 4 weeks")
     private Integer sprintDurationWeeks;
+
+    @Size(max = 50, message = "Time zone cannot exceed 50 characters")
+    private String timeZone;
 }

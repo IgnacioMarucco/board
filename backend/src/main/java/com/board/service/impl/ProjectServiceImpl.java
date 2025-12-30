@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -35,6 +36,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ProjectServiceImpl implements ProjectService {
+
+    private static final String DEFAULT_TIME_ZONE = "UTC";
 
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
@@ -61,6 +64,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .sprintDurationWeeks(request.getSprintDurationWeeks() != null
                         ? request.getSprintDurationWeeks()
                         : 2)
+                .timeZone(resolveTimeZone(request.getTimeZone()))
                 .owner(owner)
                 .build();
 
@@ -122,6 +126,10 @@ public class ProjectServiceImpl implements ProjectService {
         if (request.getSprintDurationWeeks() != null) {
             requireRole(role, Role.SCRUM_MASTER);
             project.setSprintDurationWeeks(request.getSprintDurationWeeks());
+        }
+        if (request.getTimeZone() != null) {
+            requireRole(role, Role.SCRUM_MASTER);
+            project.setTimeZone(resolveTimeZone(request.getTimeZone()));
         }
 
         project = projectRepository.save(project);
@@ -284,5 +292,16 @@ public class ProjectServiceImpl implements ProjectService {
                     .build());
         }
         boardColumnRepository.saveAll(columns);
+    }
+
+    private String resolveTimeZone(String timeZone) {
+        if (timeZone == null || timeZone.isBlank()) {
+            return DEFAULT_TIME_ZONE;
+        }
+        try {
+            return ZoneId.of(timeZone.trim()).getId();
+        } catch (Exception ex) {
+            throw new BadRequestException("Invalid time zone");
+        }
     }
 }

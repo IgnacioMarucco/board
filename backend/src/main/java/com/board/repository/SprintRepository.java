@@ -20,4 +20,6 @@ public interface SprintRepository extends JpaRepository<Sprint, Long> {
     Optional<Sprint> findByProjectAndStatus(Project project, SprintStatus status);
 
     List<Sprint> findByProjectAndStatusIn(Project project, List<SprintStatus> statuses);
+
+    List<Sprint> findByStatus(SprintStatus status);
 }

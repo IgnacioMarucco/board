@@ -23,6 +23,7 @@ public class ProjectResponse {
     private String description;
     private BoardTemplate boardTemplate;
     private Integer sprintDurationWeeks;
+    private String timeZone;
     private OwnerInfo owner;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
