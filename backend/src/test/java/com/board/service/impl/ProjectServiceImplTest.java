@@ -149,6 +149,25 @@ class ProjectServiceImplTest {
                     .isInstanceOf(BadRequestException.class)
                     .hasMessage("Project key already exists");
         }
+
+        @Test
+        @DisplayName("should throw BadRequestException when time zone is invalid")
+        void shouldThrowWhenTimeZoneInvalid() {
+            // Given
+            ProjectCreateRequest request = ProjectCreateRequest.builder()
+                    .key("NEW")
+                    .name("New Project")
+                    .timeZone("Invalid/Zone")
+                    .build();
+
+            when(projectRepository.existsByKey("NEW")).thenReturn(false);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+            // When/Then
+            assertThatThrownBy(() -> projectService.createProject(request, 1L))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessage("Invalid time zone");
+        }
     }
 
     @Nested
